@@ -37,6 +37,9 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+//Obstacle Avoidance functions
+#include "modules/computer_vision/color_detection.h"
+
 // UDP RTP Images
 #include "modules/computer_vision/lib/udp/socket.h"
 // Video
