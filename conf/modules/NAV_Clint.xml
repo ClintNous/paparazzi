@@ -1,0 +1,15 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="NAV_Clint">
+  <doc>
+    <description>navigation functions flightplan</description>
+  </doc>
+  <header>
+    <file name="NAV_Clint.h"/>
+  </header>
+  <init fun="NAV_Clint_init"/>
+  <makefile>
+    <file name="NAV_Clint.c"/>
+  </makefile>
+</module>
+

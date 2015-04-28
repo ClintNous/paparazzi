@@ -9,6 +9,15 @@
     <waypoint name="CLIMB" x="0.0" y="5.0"/>
     <waypoint name="STDBY" x="-2.0" y="-5.0"/>
     <waypoint name="TD" x="5.6" y="-10.9"/>
+    <waypoint name="foto1" x="0.0" y="0.0"/>
+    <waypoint name="foto2" x="0.0" y="0.0"/>
+    <waypoint name="curr" x="0.0" y="0.0"/>
+    <waypoint name="next" x="0.0" y="0.0"/>
+    <waypoint name="heading" x="0.0" y="0.0"/>
+    <waypoint name="global" lat="51.9906445" lon="4.3767337"/>
+    <waypoint name="look" lat="51.9906445" lon="4.3767337"/>
+    <waypoint name="global_prev" lat="51.9906445" lon="4.3767337"/>
+    <waypoint name="deg90" x="0.0" y="0.0"/>
     <waypoint lat="51.990639" lon="4.376807" name="p1"/>
     <waypoint lat="51.990624" lon="4.376767" name="p2"/>
     <waypoint lat="51.990648" lon="4.376745" name="p3"/>
@@ -17,15 +26,19 @@
     <waypoint lat="51.990606" lon="4.376760" name="FA2"/>
     <waypoint lat="51.990652" lon="4.376712" name="FA3"/>
     <waypoint lat="51.990681" lon="4.376791" name="FA4"/>
+    <waypoint lat="51.9906253" lon="4.3768574" name="FZ3"/>
+    <waypoint lat="51.9905993" lon="4.3767808" name="FZ4"/>
+    <waypoint lat="51.9906445" lon="4.3767337" name="FZ1"/>
+    <waypoint lat="51.9906707" lon="4.3768103" name="FZ2"/>
   </waypoints>
   <sectors>
     <sector color="red" name="Flight_Area">
-      <corner name="FA4"/>
-      <corner name="FA3"/>
-      <corner name="FA2"/>
       <corner name="FA1"/>
+      <corner name="FA2"/>
+      <corner name="FA3"/>
+      <corner name="FA4"/>
     </sector>
-  </sectors> 
+  </sectors>
   <blocks>
     <block name="Wait GPS">
       <call fun="NavKillThrottle()"/>
@@ -55,6 +68,38 @@
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
       <stay wp="STDBY"/>
     </block>
+    <!-- <block name="keep_pos"> 
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="stay_p1"/>
+      <heading course="stateGetNedToBodyEulers_i()->psi" vmode="alt" alt="GetAltRef() + 2" pitch="15" until="FALSE"/>
+	<attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="FALSE"/>
+    </block> -->
+    <block name="change_heading90">
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <!--<call fun="NavSetWaypointHere(WP_curr)"/> -->
+      <!--<call fun="nav_color_new_heading180()"/> -->
+      <!-- <call fun="NavSetNewWayPoint(WP_curr,1,WP_next,WP_heading,WP_global,WP_look,WP_FZ1,WP_FZ2,WP_FZ3,WP_FZ4)"/> -->
+      <!--<call fun="nav_set_heading_towards_waypoint(WP_heading)"/> -->
+      <call fun="nav_set_heading_rad((float)stateGetNedToBodyEulers_f()->psi+ 1.5)"/>
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <deroute block="stay_p1"/>
+      </block>
+    <block name="change_heading45">
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <call fun="nav_set_heading_rad(stateGetNedToBodyEulers_f()->psi+0.75)"/>
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <deroute block="stay_p1"/>
+    </block>
+    <block name="change_heading180">
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <call fun="nav_set_heading_rad(stateGetNedToBodyEulers_f()->psi+3.141592654)"/>
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="0" until="stage_time>0"/>
+      <deroute block="stay_p1"/>
+    </block>
+    <block name="keep_heading">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="change_heading90"/>
+      <exception cond="test_color_count()" deroute="change_heading90"/>
+      <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="-6" until="FALSE"/>
+    </block>  
     <block name="stay_p1">
       <stay wp="p1"/>
     </block>
@@ -76,7 +121,6 @@
       <go from="p4" hmode="route" wp="p1"/>
       <deroute block="stay_p1"/>
     </block>
-
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call fun="NavSetWaypointHere(WP_TD)"/>
     </block>

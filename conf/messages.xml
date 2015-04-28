@@ -1906,7 +1906,11 @@
     <field name="msg" type="char[]"/>
   </message>
 
-  <!--216 is free -->
+  <!--216 is not free -->
+  <message name="color_count" id="216">
+    <field name="color_count" type="int32"/>
+  </message> 
+  
   <!--217 is free -->
 
   <message name="BEBOP_ACTUATORS" id="218">

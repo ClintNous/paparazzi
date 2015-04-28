@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2012-2014 The Paparazzi Community
  *
@@ -88,7 +89,35 @@ void viewvideo_run(void) {}
 
 // take shot flag
 int viewvideo_shot = 0;
+/////////////////////////////////////////////////////////////////////////
+//Color filter includes/ defines/ declarations
+// Color filter settings - YCbCr color space
+#include "color_mod.h"
+#include "subsystems/datalink/telemetry.h" 
 
+//define downsize factor
+#define DOWNSIZE_FACTOR   4
+
+// Intensity -1 --> 1
+uint8_t color_lum_min = 105; // 105
+uint8_t color_lum_max = 200; // 205
+// Cb -1 --> 1
+uint8_t color_cb_min  = 50; // 52
+uint8_t color_cb_max  = 128; // 140
+// Cr -1 --> 1
+uint8_t color_cr_min  = 160; // 180
+uint8_t color_cr_max  = 200; // 255
+
+//int color_count;
+int32_t color_count;
+int color_detected = 0;
+int color_tresh = 1200;
+int result[5] = { 0 }; 
+/////////////////////////////////////////////////////////////////////////
+//Send color count
+static void send_color_count(void){
+  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count); 
+}
 /////////////////////////////////////////////////////////////////////////
 // COMPUTER VISION THREAD
 
@@ -159,7 +188,25 @@ void *computervision_thread_main(void *data)
 
     // Grab new frame
     video_grab_image(&vid, img_new);
+    
+    // Resize: device by 4
+    resize_uyuv(img_new, &small, DOWNSIZE_FACTOR);
+    
+    ///////////////////////////////////////////////////////////////////////////////
+    //Detection by color filtering
+    
+    // reset the result array to zero
+    for (int i=0; i<5; i++) { result[i] = 0; }
 
+    // filter selected colors and sort the filtered pixels in 5 segments
+    color_count = colorfilt_uyvy_mod(&small,&small,
+                                     color_lum_min,color_lum_max,
+                                     color_cb_min,color_cb_max,
+                                     color_cr_min,color_cr_max,
+                                     &result, 5);
+    
+   //stateGetNedToBodyEulers_i()->psi = stateGetNedToBodyEulers_i()->psi;
+    
     // Save picture on disk
     if (computer_vision_thread_command == 2) {
       uint8_t *end = encode_image(img_new->buf, jpegbuf, 99, FOUR_TWO_TWO, vid.w, vid.h, 1);
@@ -228,6 +275,8 @@ void *computervision_thread_main(void *data)
 
 void viewvideo_start(void)
 {
+  register_periodic_telemetry(DefaultPeriodic,"color_count",send_color_count);
+  
   computer_vision_thread_command = 1;
   int rc = pthread_create(&computervision_thread, NULL, computervision_thread_main, NULL);
   if (rc) {
@@ -247,5 +296,6 @@ int viewvideo_save_shot(void)
   }
   return 0;
 }
+
 
 

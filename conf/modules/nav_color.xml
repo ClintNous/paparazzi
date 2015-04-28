@@ -1,0 +1,16 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="nav_color">
+  <doc>
+    <description>navigation functions flightplan</description>
+  </doc>
+  <header>
+    <file name="nav_color.h" dir="modules/nav_color"/>
+  </header>
+  <init fun="nav_color_init()"/>
+  <periodic fun="nav_color_period()" freq="10" autorun="LOCK"/>
+    <makefile>
+    <file name="nav_color.c" dir="modules/nav_color"/>
+  </makefile>
+</module>
+

@@ -28,7 +28,6 @@
   <periodic fun="viewvideo_run()" freq="1" start="viewvideo_start()" stop="viewvideo_stop()" autorun="TRUE"/>
   <makefile target="ap">
     <file name="viewvideo.c"/>
-    <file name="color_detection.c"/>
     <file name="jpeg.c" dir="modules/computer_vision/cv/encoding"/>
     <file name="rtp.c" dir="modules/computer_vision/cv/encoding"/>
     <file name="socket.c" dir="modules/computer_vision/lib/udp"/>
