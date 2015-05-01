@@ -109,6 +109,7 @@ uint8_t color_cr_min  = 160; // 180
 uint8_t color_cr_max  = 200; // 255
 
 //int color_count;
+int cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 int32_t color_count;
 int color_detected = 0;
 int color_tresh = 1200;
@@ -116,7 +117,7 @@ int result[5] = { 0 };
 /////////////////////////////////////////////////////////////////////////
 //Send color count
 static void send_color_count(void){
-  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count); 
+  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, color_count); 
 }
 /////////////////////////////////////////////////////////////////////////
 // COMPUTER VISION THREAD
@@ -204,6 +205,11 @@ void *computervision_thread_main(void *data)
                                      color_cb_min,color_cb_max,
                                      color_cr_min,color_cr_max,
                                      &result, 5);
+    colorfilt_uyvy_mod2(&small,&small,
+                                     color_lum_min,color_lum_max,
+                                     color_cb_min,color_cb_max,
+                                     color_cr_min,color_cr_max,
+                                     &result, 5, cnt_obst);
     
    //stateGetNedToBodyEulers_i()->psi = stateGetNedToBodyEulers_i()->psi;
     
@@ -275,7 +281,7 @@ void *computervision_thread_main(void *data)
 
 void viewvideo_start(void)
 {
-  register_periodic_telemetry(DefaultPeriodic,"color_count",send_color_count);
+  register_periodic_telemetry(DefaultPeriodic,"cnt_obst",send_color_count);
   
   computer_vision_thread_command = 1;
   int rc = pthread_create(&computervision_thread, NULL, computervision_thread_main, NULL);

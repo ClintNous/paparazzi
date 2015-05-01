@@ -184,7 +184,10 @@
     <field name="segment_north_2" type="float" unit="m"/>
   </message>
 
-  <!-- ID 23 is free -->
+  <!-- ID 23 is NOT free -->
+  <message name="HEADING_CALCULATED" id="23">
+    <field name="heading" type="float"/>
+  </message>
   <!-- ID 24 is free -->
 
   <message name="SVINFO" id="25">

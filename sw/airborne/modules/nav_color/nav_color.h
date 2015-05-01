@@ -19,6 +19,7 @@
 #include "nav_team13.h"
 
 int safe_heading;
+float heading_new;
 
 #endif
 

@@ -51,3 +51,4 @@ extern int viewvideo_shot;
 //color_count for obstacle detection
 #include <stdint.h>
 int32_t color_count;
+int cnt_obst[20];
