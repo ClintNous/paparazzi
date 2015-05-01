@@ -21,7 +21,7 @@ void nav_color_period(void){}
 
 bool_t test_color_count(void){
   int color_treshold = 6000;
-  if(color_count> color_treshold){
+  if(color_count2> color_treshold){
     return TRUE;
   }
   else{
@@ -31,10 +31,12 @@ bool_t test_color_count(void){
 
 int32_t nav_color_new_heading90(void){
   safe_heading =0.75;  
+  return FALSE;
 } 
 
 int32_t nav_color_new_heading180(void){
   safe_heading = 0.75; 
+  return FALSE;
 } 
 
 

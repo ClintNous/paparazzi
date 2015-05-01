@@ -13,10 +13,10 @@
 #ifndef nav_color_H
 #define nav_color_H
 
-#include "modules/computer_vision/viewvideo.h"
 #include "std.h"
 #include "navigation.h" 
 #include "nav_team13.h"
+#include "modules/computer_vision/viewvideo.h"
 
 int safe_heading;
 

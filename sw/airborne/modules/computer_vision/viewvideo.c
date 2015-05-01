@@ -29,7 +29,7 @@
  * Works on Linux platforms
  */
 
-// Own header
+// Own headerdon
 #include "modules/computer_vision/viewvideo.h"
 
 #include <stdlib.h>
@@ -109,14 +109,13 @@ uint8_t color_cr_min  = 160; // 180
 uint8_t color_cr_max  = 200; // 255
 
 //int color_count;
-int32_t color_count;
 int color_detected = 0;
 int color_tresh = 1200;
 int result[5] = { 0 }; 
 /////////////////////////////////////////////////////////////////////////
 //Send color count
 static void send_color_count(void){
-  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count); 
+  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count2); 
 }
 /////////////////////////////////////////////////////////////////////////
 // COMPUTER VISION THREAD
@@ -199,7 +198,7 @@ void *computervision_thread_main(void *data)
     for (int i=0; i<5; i++) { result[i] = 0; }
 
     // filter selected colors and sort the filtered pixels in 5 segments
-    color_count = colorfilt_uyvy_mod(&small,&small,
+    color_count2 = colorfilt_uyvy_mod(&small,&small,
                                      color_lum_min,color_lum_max,
                                      color_cb_min,color_cb_max,
                                      color_cr_min,color_cr_max,

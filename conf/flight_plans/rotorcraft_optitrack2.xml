@@ -100,6 +100,9 @@
       <exception cond="test_color_count()" deroute="change_heading90"/>
       <attitude roll="0" vmode="alt" alt="GetAltRef() + 2" pitch="-6" until="FALSE"/>
     </block>  
+    <block name = "circle">
+      <call fun="nav_circle()"/>
+    </block>
     <block name="stay_p1">
       <stay wp="p1"/>
     </block>
