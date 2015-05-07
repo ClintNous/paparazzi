@@ -184,8 +184,19 @@
     <field name="segment_north_2" type="float" unit="m"/>
   </message>
 
-  <!-- ID 23 is free -->
-  <!-- ID 24 is free -->
+  <!-- ID 23 is NOT free -->
+  <message name="HEADING_CALCULATED" id="23">
+    <field name="heading" type="float"/>
+    <field name="current_heading" type="float"/>
+    <field name="r_dot_new" type="float"/>
+    <field name="potential_obst" type="float"/>
+    <field name="obst_angle" type="float[10]"/>
+    <field name="obst_width" type="float[10]"/>
+  </message> 
+  <!-- ID 24 is NOT free -->
+  <message name="CNT_OBST" id="24">
+    <field name="CNT_OBST" type="int32[]"/>
+  </message>
 
   <message name="SVINFO" id="25">
     <field name="chn" type="uint8"/>

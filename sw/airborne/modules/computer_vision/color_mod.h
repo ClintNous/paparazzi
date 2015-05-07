@@ -151,7 +151,75 @@ inline int colorfilt_uyvy_mod(struct img_struct* input, struct img_struct* outpu
     }
   }
   
-
   return cnt_total;
 }
 
+inline void colorfilt_uyvy_mod2(struct img_struct* input, struct img_struct* output, uint8_t y_m, uint8_t y_M, uint8_t u_m, uint8_t u_M, uint8_t v_m, uint8_t v_M, int* counter, int N, int* cnt_obst_p);
+inline void colorfilt_uyvy_mod2(struct img_struct* input, struct img_struct* output, uint8_t y_m, uint8_t y_M, uint8_t u_m, uint8_t u_M, uint8_t v_m, uint8_t v_M, int* counter, int N, int* cnt_obst_p)
+{
+  //uint8_t *source = input->buf;
+  uint8_t *dest = output->buf;
+  //int *cnt = counter;
+  int j = 0;
+  int cnt_total = 0;
+  int y = output->h/2;
+  int x = 0;
+  dest+=(y*(output->w*2));
+  for(int j2=0;j2<20;j2++)
+  cnt_obst_p[j2] = 0;  
+
+   while(x<output->w)
+    {
+      /*printf("Y: %d of %d and %d",dest[1], y_m, y_M);
+      
+      printf("U: %d of %d and %d",dest[0], u_m, u_M);
+      
+      printf("V: %d of %d and %d",dest[2], v_m, v_M);*/
+      // Color Check:
+      if (
+          // Light
+               (dest[1] >= y_m)
+            && (dest[1] <= y_M)
+            && (dest[0] >= u_m)
+            && (dest[0] <= u_M)
+            && (dest[2] >= v_m)
+	    && (dest[2] <= v_M)
+         ) // && (dest[2] > 128))
+      {	
+	 // printf("In ifcheck");
+	
+      cnt_obst_p[j+10] = x;
+	  while(
+	      // LightS
+		  (dest[1] >= y_m)
+		&& (dest[1] <= y_M)
+		&& (dest[0] >= u_m)
+		&& (dest[0] <= u_M)
+		&& (dest[2] >= v_m)
+		&& (dest[2] <= v_M)
+	    )
+	  {
+	  cnt_total++;
+	  cnt_obst_p[j] = cnt_obst_p[j]+1;
+	  dest+=4;	
+	  x = x+2;
+	  }
+	  if(j<10){	  
+	      j++;
+	  }
+      }	  
+      else{
+
+	dest+=4;
+	x=x+2;
+      }
+
+  }
+  
+/*    printf("array test: ");
+
+    for(int i2=0;i2<20;i2++)
+    printf(" %d ",cnt_obst_p[i2]);
+    
+    printf("\n")*/;
+}

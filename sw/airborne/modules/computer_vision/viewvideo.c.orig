@@ -29,7 +29,7 @@
  * Works on Linux platforms
  */
 
-// Own header
+// Own headerdon
 #include "modules/computer_vision/viewvideo.h"
 
 #include <stdlib.h>
@@ -109,10 +109,23 @@ uint8_t color_cr_min  = 160; // 180
 uint8_t color_cr_max  = 200; // 255
 
 //int color_count;
-//int cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+<<<<<<< HEAD
+=======
+int cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int32_t color_count;
+>>>>>>> e52a58ffeec1de460f8339f43fbda483c60ea77e
 int color_detected = 0;
 int color_tresh = 1200;
 int result[5] = { 0 }; 
+/////////////////////////////////////////////////////////////////////////
+//Send color count
+static void send_color_count(void){
+<<<<<<< HEAD
+  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count2); 
+=======
+  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, color_count); 
+>>>>>>> e52a58ffeec1de460f8339f43fbda483c60ea77e
+}
 /////////////////////////////////////////////////////////////////////////
 // COMPUTER VISION THREAD
 
@@ -141,7 +154,7 @@ void *computervision_thread_main(void *data)
   uint8_t quality_factor = VIDEO_QUALITY_FACTOR;
   uint8_t dri_jpeg_header = 0;
   int microsleep = (int)(1000000. / VIDEO_FPS);
-  
+
   struct img_struct small;
   small.w = vid.w / VIDEO_DOWNSIZE_FACTOR;
   small.h = vid.h / VIDEO_DOWNSIZE_FACTOR;
@@ -194,25 +207,18 @@ void *computervision_thread_main(void *data)
     for (int i=0; i<5; i++) { result[i] = 0; }
 
     // filter selected colors and sort the filtered pixels in 5 segments
-//     color_count = colorfilt_uyvy_mod(&small,&small,
-//                                      color_lum_min,color_lum_max,
-//                                      color_cb_min,color_cb_max,
-//                                      color_cr_min,color_cr_max,
-//                                      result, 5);
-    
+    color_count2 = colorfilt_uyvy_mod(&small,&small,
+                                     color_lum_min,color_lum_max,
+                                     color_cb_min,color_cb_max,
+                                     color_cr_min,color_cr_max,
+                                     &result, 5);
     colorfilt_uyvy_mod2(&small,&small,
                                      color_lum_min,color_lum_max,
                                      color_cb_min,color_cb_max,
                                      color_cr_min,color_cr_max,
-                                     result, 5, cnt_obst);
-//         printf("array test: ");
-// 
-//     for(int i=0;i<20;i++)
-//     printf(" %d ",cnt_obst[i]);
-//     
-//     printf("\n");
+                                     &result, 5, cnt_obst);
     
-   //stateGetNedToBodyEulers_i()->psi = stateGetNeest dToBodyEulers_i()->psi;
+   //stateGetNedToBodyEulers_i()->psi = stateGetNedToBodyEulers_i()->psi;
     
     // Save picture on disk
     if (computer_vision_thread_command == 2) {
@@ -280,21 +286,9 @@ void *computervision_thread_main(void *data)
   return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////
-//Send color count
-static void send_color_count(void){
-  DOWNLINK_SEND_color_count(DefaultChannel, DefaultDevice, &color_count); 
-}
-
-//Send CNT_OBST
- static void send_CNT_OBST(void){
-   DOWNLINK_SEND_CNT_OBST(DefaultChannel, DefaultDevice, 20,cnt_obst); 
- }
-
 void viewvideo_start(void)
 {
-  register_periodic_telemetry(DefaultPeriodic,"color_count",send_color_count);
-  register_periodic_telemetry(DefaultPeriodic,"CNT_OBST",send_CNT_OBST);
+  register_periodic_telemetry(DefaultPeriodic,"cnt_obst",send_color_count);
   
   computer_vision_thread_command = 1;
   int rc = pthread_create(&computervision_thread, NULL, computervision_thread_main, NULL);

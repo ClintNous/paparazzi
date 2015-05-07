@@ -27,6 +27,8 @@
 #include "firmwares/rotorcraft/stabilization/stabilization_attitude_ref_euler_int.h"
 #include "firmwares/rotorcraft/stabilization/stabilization_attitude_ref_saturate.h"
 #include "generated/airframe.h"
+#include "modules/nav_color/nav_color.h"
+#include "navigation.h"
 
 struct Int32Eulers stab_att_sp_euler;
 struct Int32Eulers stab_att_ref_euler;  ///< with #REF_ANGLE_FRAC
@@ -111,6 +113,11 @@ void stabilization_attitude_ref_update()
   };
   RATES_ADD(stab_att_ref_rate, d_rate);
 
+ 
+  //Set ref heading to calculated heading from force field
+  stab_att_sp_euler.psi = nav_set_heading_deg(heading_new); 
+  
+  
   /* attitude setpoint with REF_ANGLE_FRAC   */
   struct Int32Eulers sp_ref;
   INT32_EULERS_LSHIFT(sp_ref, stab_att_sp_euler, (REF_ANGLE_FRAC - INT32_ANGLE_FRAC));
