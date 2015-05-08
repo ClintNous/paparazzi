@@ -27,7 +27,7 @@ struct EnuCoor_f waypoints_OA[NB_WAYPOINT] = WAYPOINTS_ENU;
 
 
 static void send_calculated_heading(void) {
-  DOWNLINK_SEND_HEADING_CALCULATED(DefaultChannel, DefaultDevice, &heading_new, &current_heading, &r_dot_new, &potential_obst_write, obst_angle ,obst_width);
+  DOWNLINK_SEND_HEADING_CALCULATED(DefaultChannel, DefaultDevice, &heading_new, &current_heading, &heading_goal_ref, &potential_obst_write, obst_angle ,obst_width);
  }
  
 void nav_color_init(void){
@@ -52,7 +52,15 @@ bool_t nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_h
   current_heading = stateGetNedToBodyEulers_f()->psi;
   
   VECT2_DIFF(pos_diff, target, current_pos);
-  float heading_goal_f = atan2f(pos_diff.x, pos_diff.y);
+  heading_goal_f = atan2f(pos_diff.x, pos_diff.y);
+  
+  heading_goal_ref = current_heading-heading_goal_f;
+  if (heading_goal_ref>M_PI){
+    heading_goal_ref = heading_goal_ref - 2*M_PI;
+  }
+  else if(heading_goal_ref<-M_PI){
+      heading_goal_ref = heading_goal_ref + 2*M_PI;
+  }
   
   //define image size HAS TO BE CHECKED!
  int image_size[2] = {1280/4, 720/4};
@@ -65,13 +73,13 @@ bool_t nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_h
 
  
  //Tuning variable for algorithm
- float b_damp = 5.5; 
- float K_goal = 3;
- float K_obst = 30.0;
- float c1 = 0.4;
- float c2 = 0.4;
- float c3 = 4.0;
- float c5 = 1.5;
+//  b_damp = 5.5; 
+//  K_goal = 3;
+//  K_obst = 30.0;
+//  c1 = 0.4;
+//  c2 = 0.4;
+//  c3 = 4.0;
+//  c5 = 1.5;
  float potential_obst = 0; 
 
  
@@ -84,14 +92,14 @@ bool_t nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_h
    obst_angle[i] = ((float)cnt_obst[10+i]+0.5*(float)cnt_obst[i])*(image_fow[0]/(float)image_size[0])-(0.5*image_fow[0]); 
    
       if (cnt_obst[i]>10 && obst_angle[i] != -(0.5*image_fow[0])){
-	potential_obst = potential_obst + K_obst*(current_heading-obst_angle[i])*exp(-c3*abs(current_heading - obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
 	potential_obst_write = potential_obst;
       }
   }
   
  //calculate angular accelaration from potential field
-  r_dot_new = -b_damp*r_old -K_goal*(current_heading-heading_goal_f)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
-  
+  r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+  delta_heading = 0.5*r_dot_new*dt*dt;
   //Integrate using simple intgration CHECK for time step!
   heading_new = current_heading + 0.5*r_dot_new*dt*dt;
 
@@ -116,8 +124,6 @@ bool_t nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_h
  return FALSE;
   
 }
-
-
 
 bool_t NavCalNewWaypointCircle(uint8_t N_points, float radius, uint8_t target)
     {

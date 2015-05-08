@@ -36,7 +36,7 @@
     <define name="modules/computer_vision/lib" type="include"/>
     <define name="pthread" type="raw"/>
     <define name="__USE_GNU"/>
-    <flag name="LDFLAGS" value="pthread"/>
+    <flag name="LDFLAGS" value="pthread"/> 
     <flag name="LDFLAGS" value="lrt"/>
     <flag name="LDFLAGS" value="static"/>
   </makefile>

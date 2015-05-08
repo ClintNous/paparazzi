@@ -32,9 +32,20 @@ bool_t NavCalNewWaypointCircle(uint8_t N_points, float radius, uint8_t target);
 int safe_heading;
 float heading_new;
 float current_heading;
-float r_dot_new;
+float r_dot_new; 
+float delta_heading;
 float potential_obst_write;
 float obst_angle[10];
 float obst_width[10];
+float b_damp; 
+float K_goal;
+float K_obst;
+float c1;
+float c2;
+float c3;
+float c5;
+float heading_goal_f;
+float heading_goal_ref;
+
 #endif
 
