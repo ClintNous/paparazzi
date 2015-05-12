@@ -73,5 +73,5 @@ void follow_change_wp(unsigned char *buffer)
   // TODO: Remove the angle to the north
 
   // Move the waypoint
-  VECT3_COPY(waypoints[FOLLOW_WAYPOINT_ID], enu);
+  //VECT3_COPY(waypoints[FOLLOW_WAYPOINT_ID], enu);
 }
