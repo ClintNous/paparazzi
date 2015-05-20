@@ -48,4 +48,26 @@ extern void practical_module_run(void);
 extern void practical_module_start(void);
 extern void practical_module_stop(void);
 
+//variables CN
+int safe_heading;
+float heading_new;
+float current_heading;
+float delta_heading;
+float potential_obst_write;
+float obst_angle[10];
+float obst_width[10];
+extern float b_damp; 
+extern float K_goal;
+extern float K_obst;
+extern float c1;
+extern float c2;
+extern float c3;
+extern float c5;
+extern float kv;
+extern float epsilon;
+extern float vmax;
+extern int32_t cnt_obst[20];
+float heading_goal_f;
+float heading_goal_ref;
+
 #endif /* PRACTICAL_MODULE_H */

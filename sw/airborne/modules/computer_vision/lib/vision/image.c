@@ -191,6 +191,73 @@ uint16_t image_yuv422_colorfilt(struct image_t *input, struct image_t *output, u
   return cnt;
 }
 
+void image_yuv422_colorfilt_CN(struct image_t *input, struct image_t *output, uint8_t y_m, uint8_t y_M, uint8_t u_m,
+                                uint8_t u_M, uint8_t v_m, uint8_t v_M, int32_t* cnt_obst_p)
+{
+  //uint16_t cnt = 0;
+  //uint8_t *source = input->buf;
+  uint8_t *dest = output->buf;
+  
+  int j_OA = 0;
+  int cnt_total = 0;
+  int y = output->h/2;
+  int x = 0;
+  dest+=(y*(output->w*2));
+  for(int j2=0;j2<20;j2++){
+    cnt_obst_p[j2] = 0; 
+  }
+  // Copy the creation timestamp (stays the same)
+  //memcpy(&output->ts, &input->ts, sizeof(struct timeval));
+
+ //check middle pixel row
+  while(x<output->w)
+    {
+      /*printf("Y: %d of %d and %d",dest[1], y_m, y_M);
+      
+      printf("U: %d of %d and %d",dest[0], u_m, u_M);
+      
+      printf("V: %d of %d and %d",dest[2], v_m, v_M);*/
+      // Color Check:
+      if (
+          // Light
+               (dest[1] >= y_m)
+            && (dest[1] <= y_M)
+            && (dest[0] >= u_m)
+            && (dest[0] <= u_M)
+            && (dest[2] >= v_m)
+	    && (dest[2] <= v_M)
+         ) // && (dest[2] > 128))
+      {	
+	 // printf("In ifcheck");
+	
+         cnt_obst_p[j_OA+10] = x;
+	  while(
+	      // LightS
+		  (dest[1] >= y_m)
+		&& (dest[1] <= y_M)
+		&& (dest[0] >= u_m)
+		&& (dest[0] <= u_M)
+		&& (dest[2] >= v_m)
+		&& (dest[2] <= v_M)
+	    )
+	  {
+	  cnt_total++;
+	  cnt_obst_p[j_OA] = cnt_obst_p[j_OA]+1;
+	  dest+=4;	
+	  x = x+2;
+	  }
+	  if(j_OA<10){	  
+	     j_OA++;
+	  }
+      }	  
+      else{
+
+	dest+=4;
+	x=x+2;
+      }
+  }
+}
+
 /**
 * Simplified high-speed low CPU downsample function without averaging
 *  downsample factor must be 1, 2, 4, 8 ... 2^X

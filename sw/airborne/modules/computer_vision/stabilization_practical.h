@@ -33,6 +33,7 @@
 #include "std.h"
 #include "math/pprz_algebra_int.h"
 #include "guidance/guidance_h.h"
+#include "practical_module.h"
 
 /* The practical stabilization */
 struct practical_stab_t {
@@ -49,5 +50,7 @@ struct practical_stab_t {
 };
 extern struct practical_stab_t practical_stab;
 extern int32_t yaw_rate;
+extern float r_dot_new;
+extern float speed_pot;
 
 #endif /* CV_STABILIZATION_OPTICFLOW_H_ */

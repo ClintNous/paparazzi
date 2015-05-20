@@ -184,8 +184,16 @@
     <field name="segment_north_2" type="float" unit="m"/>
   </message>
 
-  <!-- ID 23 is free -->
+  <!-- ID 23 is NOT free -->
+  <message name ="CNT_OBST" id="23">
+    <field name ="CNT_OBST" type="int32[20]"/>
+  </message> 
+    
   <!-- ID 24 is free -->
+  <message name ="R_DOT_AND_SPEED" id="24">
+    <field name ="R_DOT_NEW" type="float"/>
+    <field name ="SPEED_POT" type="float"/>
+  </message>
 
   <message name="SVINFO" id="25">
     <field name="chn" type="uint8"/>
@@ -1906,7 +1914,12 @@
     <field name="msg" type="char[]"/>
   </message>
 
-  <!--216 is free -->
+  <!--216 is NOT free -->
+  <message name ="YAW_RATE" id="216">
+    <field name ="YAW_RATE" type="int32"/>
+    <field name ="YAW_REF" type="int32"/>
+    <field name ="R_DOT_NEW" type="float"/>
+  </message> 
   <!--217 is free -->
 
   <message name="BEBOP_ACTUATORS" id="218">

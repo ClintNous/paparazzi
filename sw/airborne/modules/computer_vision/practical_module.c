@@ -27,6 +27,7 @@
 
 
 #include "practical_module.h"
+#include "generated/flight_plan.h"
 
 #include <stdio.h>
 #include <pthread.h>
@@ -36,6 +37,7 @@
 #include "subsystems/abi.h"
 #include "stabilization_practical.h"
 #include "subsystems/datalink/downlink.h"
+#include "subsystems/datalink/telemetry.h"
 
 #include "lib/v4l/v4l2.h"
 #include "lib/encoding/jpeg.h"
@@ -60,17 +62,47 @@ static void practical_tx_img(struct image_t *img, bool_t rtp);  //< Trnsmit an i
 
 static void practical_integral_img_detect(struct image_t *img, uint16_t sub_img_h, uint16_t feature_size, struct image_t* int_y, struct image_t* int_u, struct image_t* int_v);
 
+void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading);
 uint8_t point_in_sector(struct image_t *img, struct point_t point);
 uint16_t num_features_in_sector[4] = {0, 0, 0, 0};
 
 // uint32_t last_second;
 // static uint32_t counter;
 
+//color_count_CN
+int32_t cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+float  b_damp = 5.5; 
+float  K_goal = 2;
+float  K_obst = 20.0;
+float  c1 = 0.4;
+float  c2 = 0.4;
+float  c3 = 3.0;
+float  c5 = 0.9;
+float  kv = 0.5;
+float  epsilon = 0.1;
+float  vmax = 0.5;
+uint8_t point_index = 0;
+
+struct EnuCoor_f waypoints_OA[NB_WAYPOINT] = WAYPOINTS_ENU;
+
+//messages functions
+static void send_CNT_OBST(void) {
+  DOWNLINK_SEND_CNT_OBST (DefaultChannel, DefaultDevice, cnt_obst);
+ }
+
+ static void send_R_DOT_AND_SPEED(void) {
+  DOWNLINK_SEND_R_DOT_AND_SPEED (DefaultChannel, DefaultDevice, &r_dot_new, &speed_pot);
+ }
+
 /**
  * Initialize the practical module
  */
 void practical_module_init(void)
 {
+  //messages
+  register_periodic_telemetry(DefaultPeriodic, "CNT_OBST", send_CNT_OBST);
+  register_periodic_telemetry(DefaultPeriodic, "R_DOT_AND_SPEED", send_R_DOT_AND_SPEED);
+  
    //last_second = get_sys_time_msec();
    //counter = 0;
 
@@ -157,9 +189,9 @@ static void *practical_module_calc(void *data __attribute__((unused)))
     return 0;
   }
   
-    struct image_t int_y, int_u, int_v;  
+   // struct image_t int_y, int_u, int_v;  
 
-#if PRACTICAL_DEBUG
+/*#if PRACTICAL_DEBUG
   // Create a new JPEG image
   struct image_t img_jpeg, img_small;
   image_create(&img_jpeg, practical_video_dev->w, practical_video_dev->h, IMAGE_JPEG);
@@ -167,13 +199,26 @@ static void *practical_module_calc(void *data __attribute__((unused)))
     practical_video_dev->w/4,
     practical_video_dev->h/4,
     IMAGE_YUV422);
-#endif
+#endif */
   
-  uint16_t img_height = 200;
+  //uint16_t img_height = 200;
 
   /* Main loop of the optical flow calculation */
   while (TRUE) {
-    // Try to fetch an image    
+    
+    struct image_t img;
+    struct image_t img_small;
+    
+    v4l2_image_get(practical_video_dev, &img);
+   // image_yuv422_downsample(&img, &img_small, 4);
+    
+    image_yuv422_colorfilt_CN(&img, &img, practical.y_m, practical.y_M, practical.u_m, practical.u_M, practical.v_m, practical.v_M, cnt_obst);
+    nav_cal_heading(1.0,WP_p1, WP_p2, WP_p3);
+    
+    v4l2_image_free(practical_video_dev, &img);
+    image_free(&img_small);
+    
+   // Try to fetch an image    
     // counter++;
     // if ((get_sys_time_msec()-last_second) > 1000) {
     //   printf("Count: %d\n", counter);
@@ -182,25 +227,24 @@ static void *practical_module_calc(void *data __attribute__((unused)))
     // }
 
     // Try to fetch an image
-    struct image_t img;
-    v4l2_image_get(practical_video_dev, &img);
+    //struct image_t img;
+    //v4l2_image_get(practical_video_dev, &img);
     
-    if(int_y.buf_size != 2*img.w*img_height){
+   /* if(int_y.buf_size != 2*img.w*img_height){
       //printf("Not the same size! %d, %d\n", int_y.buf_size, img.w*img_height);
       image_free(&int_y);
       image_free(&int_u);
       image_free(&int_v);
       
-      //deleted by CN
-      //image_create(&int_y, img.w/2, img_height, IMAGE_INTEGRAL);
-      //image_create(&int_u, img.w/2, img_height, IMAGE_INTEGRAL);
-      //image_create(&int_v, img.w/2, img_height, IMAGE_INTEGRAL);
-    }
+      image_create(&int_y, img.w/2, img_height, IMAGE_INTEGRAL);
+      image_create(&int_u, img.w/2, img_height, IMAGE_INTEGRAL);
+      image_create(&int_v, img.w/2, img_height, IMAGE_INTEGRAL);
+    }*/
 
     // Calculate the colours in 2 bins (left/right)
     // uint32_t bins[2];
     // memset(bins, 0, sizeof(uint32_t) * 2);
-    // image_yuv422_colorfilt(&img, &img_copy, bins, 2, practical.y_m, practical.y_M, practical.u_m, practical.u_M, practical.v_m, practical.v_M);
+    //  image_yuv422_colorfilt(&img, &img_copy, bins, 2, practical.y_m, practical.y_M, practical.u_m, practical.u_M, practical.v_m, practical.v_M);
     // RunOnceEvery(10, printf("Bins: %d\t%d\n", bins[0], bins[1]));
 
     // // Update the heading
@@ -220,28 +264,124 @@ static void *practical_module_calc(void *data __attribute__((unused)))
     // }
 
     // window_h = f(height,pitch, target obstacle avoidacne distance)
-    practical_integral_img_detect(&img, img_height /*window_h*/, 25 /*box size*/, &int_y, &int_u, &int_y);
+    
+    // practical_integral_img_detect(&img, img_height /*window_h*/, 25 /*box size*/, &int_y, &int_u, &int_y);
 
-#if PRACTICAL_DEBUG
+/*#if PRACTICAL_DEBUG
     //RunOnceEvery(10, {
     image_yuv422_downsample(&img, &img_small, 4);
     jpeg_encode_image(&img_small, &img_jpeg, 60, FALSE);
     practical_tx_img(&img_jpeg, FALSE);
     //});
-#endif
+#endif */
 
     // Free the image
-    v4l2_image_free(practical_video_dev, &img);
+    //v4l2_image_free(practical_video_dev, &img);
   }
 
-  image_free(&int_y);
-  image_free(&int_u);
-  image_free(&int_v);
+  //image_free(&int_y);
+  //image_free(&int_u);
+  //image_free(&int_v);
   
-#if PRACTICAL_DEBUG
+/*#if PRACTICAL_DEBUG
   image_free(&img_jpeg);
   image_free(&img_small);
 #endif
+*/
+  
+}
+
+void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading){
+  bool_t flag_speed_control = TRUE;
+  
+  //int width = cnt_obst[0];
+  //struct EnuCoor_i waypoints[NB_WAYPOINT];
+  
+  //read in value of waypoints
+  struct EnuCoor_i wp_tmp_int_oa;
+  struct EnuCoor_i wp_tmp_int_oa2;
+
+  //read in position
+  struct FloatVect2 current_pos = {stateGetPositionEnu_f()->x, stateGetPositionEnu_f()->y};
+  struct FloatVect2 target = {waypoints_OA[goal].x, waypoints_OA[goal].y};
+  struct FloatVect2 pos_diff;
+  current_heading = stateGetNedToBodyEulers_f()->psi;
+  
+  VECT2_DIFF(pos_diff, target, current_pos);
+  heading_goal_f = atan2f(pos_diff.x, pos_diff.y);
+  
+  heading_goal_ref = current_heading-heading_goal_f;
+  if (heading_goal_ref>M_PI){
+    heading_goal_ref = heading_goal_ref - 2*M_PI;
+  }
+  else if(heading_goal_ref<-M_PI){
+      heading_goal_ref = heading_goal_ref + 2*M_PI;
+  }
+  
+  //define image size HAS TO BE CHECKED!
+ int image_size[2] = {1280, 720};
+ float image_fow[2] = {1.2915, 2.0297};
+ float angle_change;
+ 
+ //define potential field variables
+ //float r_new;
+ float r_old = stateGetBodyRates_f()->r;
+
+ float potential_obst = 0; 
+ float potential_obst_integrated = 0;
+ 
+ //define delta t for integration! check response under 0.1 and 1
+ float dt = 0.5;
+ 
+ //calculate position angle and angular widht of obstacles
+  for(int i=0;i<5;i++){
+   obst_width[i] = cnt_obst[i]*(image_fow[0]/(float)image_size[0]);
+   obst_angle[i] = ((float)cnt_obst[10+i]+0.5*(float)cnt_obst[i])*(image_fow[0]/(float)image_size[0])-(0.5*image_fow[0]); 
+   
+      if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*image_fow[0])){
+	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+	potential_obst_write = potential_obst;
+	potential_obst_integrated = potential_obst_integrated + K_obst*c3*(abs(obst_angle[i])+1)/(c3*c3)*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+	
+      }
+  }
+  
+ //calculate angular accelaration from potential field
+  r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2);// + potential_obst;
+  delta_heading = 0.5*r_dot_new*dt*dt;
+  //Integrate using simple intgration CHECK for time step!
+  heading_new = current_heading + 0.5*r_dot_new*dt*dt;
+
+  if(flag_speed_control=TRUE){
+    speed_pot = vmax*exp(-kv*potential_obst_integrated) - epsilon;
+    if(speed_pot>0){
+	//dist_oa = speed_pot*dt;
+    }
+    else if(speed_pot<=0){
+       dist_oa = 0;
+       speed_pot = 0;
+    }
+  }
+  
+
+  /*waypoints_OA[follow].x = stateGetPositionEnu_f()->x + sinf(heading_new)*dist_oa;
+  waypoints_OA[follow].y = stateGetPositionEnu_f()->y + cosf(heading_new)*dist_oa;
+  
+  waypoints_OA[wp_heading].x = stateGetPositionEnu_f()->x + sinf(heading_new)*2;
+  waypoints_OA[wp_heading].y = stateGetPositionEnu_f()->y + cosf(heading_new)*2;
+  
+  wp_tmp_int_oa.x = POS_BFP_OF_REAL(waypoints_OA[follow].x);
+  wp_tmp_int_oa.y = POS_BFP_OF_REAL(waypoints_OA[follow].y);
+  wp_tmp_int_oa.z = POS_BFP_OF_REAL(waypoints_OA[follow].z);
+  
+  wp_tmp_int_oa2.x = POS_BFP_OF_REAL(waypoints_OA[wp_heading].x);
+  wp_tmp_int_oa2.y = POS_BFP_OF_REAL(waypoints_OA[wp_heading].y);
+  wp_tmp_int_oa2.z = POS_BFP_OF_REAL(waypoints_OA[wp_heading].z);
+   
+  
+ nav_move_waypoint(follow, &wp_tmp_int_oa);
+ nav_move_waypoint(wp_heading, &wp_tmp_int_oa2);*/
+  
 }
 
 /**
@@ -308,7 +448,7 @@ static void practical_tx_img(struct image_t *img, bool_t use_netcat)
  * @param[in] feature_size The bin size to average for object detection
  */
 static void practical_integral_img_detect(struct image_t *img, uint16_t sub_img_h, uint16_t feature_size, struct image_t* int_y, struct image_t* int_u, struct image_t* int_v)
-{
+{/*
   // note numbering of channels 0,1,2 -> Y,U,V
   // TODO: optimise computation of median and integral images in image.c
   // TODO: Remove placing point in image in final version, maybe place in a debug define...
@@ -419,7 +559,7 @@ static void practical_integral_img_detect(struct image_t *img, uint16_t sub_img_
                             &num_features_in_sector[0],
                             &num_features_in_sector[1],
                             &num_features_in_sector[2],
-                            &num_features_in_sector[3]);
+                            &num_features_in_sector[3]); */
 
 }
 
