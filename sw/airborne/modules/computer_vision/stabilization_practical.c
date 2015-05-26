@@ -38,6 +38,7 @@
 #include "navigation.h"
 #include "generated/flight_plan.h"
 #include "subsystems/datalink/telemetry.h"
+#include <stdio.h>
 
 #define CMD_OF_SAT  1500 // 40 deg = 2859.1851
 
@@ -90,13 +91,17 @@ struct practical_stab_t practical_stab = {
 };
 
 int32_t yaw_rate = 0;
+float yaw_rate_write = 0;
+float yaw_ref_write = 0;
 int32_t keep_yaw_rate = 0;
 int32_t keep_turning = 0;
 float r_dot_new = 0;
-float speed_pot = 0;
+float speed_pot = 0;;
+float alpha_fil = 0.1;
+float v_desired = 0.1;
 
 static void send_YAW_RATE(void) {
-  DOWNLINK_SEND_YAW_RATE (DefaultChannel, DefaultDevice, &yaw_rate, &practical_stab.cmd.psi, &r_dot_new);
+  DOWNLINK_SEND_YAW_RATE (DefaultChannel, DefaultDevice, &yaw_rate_write, &yaw_ref_write, &r_dot_new);
  }
 
 /**
@@ -114,6 +119,8 @@ void guidance_h_module_enter(void)
   practical_stab.cmd.theta = 0;
   practical_stab.cmd.psi = stateGetNedToBodyEulers_i()->psi;
   
+  yaw_rate = 0;
+  
   register_periodic_telemetry(DefaultPeriodic, "YAW_RATE", send_YAW_RATE);
   
 }
@@ -130,15 +137,12 @@ void guidance_h_module_read_rc(void)
  * Main guidance loop
  * @param[in] in_flight Whether we are in flight or not
  */
-void guidance_h_module_run(bool_t in_flight)
-{
-  if(TRUE) {
-    // Set the height
-    guidance_v_z_sp = -1 << 8;
 
-    // Some logic to change the desired speed if outside boundery
-    /*if(!InsideFlight_Area(GetPosX(), GetPosY())) {
-      //nav_set_heading_towards_waypoint(WP_MID); deleted by CN
+/*Code from freek deleted out of run function 
+ * 
+     //Some logic to change the desired speed if outside boundery
+    if(!InsideFlight_Area(GetPosX(), GetPosY())) {
+      nav_set_heading_towards_waypoint(WP_MID); deleted by CN
 
       int32_t diff_heading = nav_heading - stateGetNedToBodyEulers_i()->psi;
       INT32_ANGLE_NORMALIZE(diff_heading);
@@ -156,36 +160,45 @@ void guidance_h_module_run(bool_t in_flight)
       }
     }
     else {
-   */   
       
-     yaw_rate = (int32_t)ANGLE_BFP_OF_REAL(r_dot_new*(1.0/512));
-     printf("\n yaw %d", r_dot_new);
-    // yaw_rate = r_dot_new;
-     practical_stab.cmd.psi += yaw_rate;
-     
-     
-     //printf("yaw_ref %d", practical_stab.cmd.psi);
-      /*if(yaw_rate == 0) {
-        if(keep_turning>0) {
-          keep_turning = keep_turning - 1;
-          practical_stab.cmd.psi += keep_yaw_rate;
-        }
-      }
-      else{
-        keep_yaw_rate = yaw_rate;
-        keep_turning = 500/yaw_rate;
-      }*/
       
-      INT32_ANGLE_NORMALIZE(practical_stab.cmd.psi);
-
-      if(yaw_rate == 0){
-        practical_stab.desired_vx = PRACTICAL_DESIRED_VX;
-        //practical_stab.desired_vs = speed_pot;
+    //printf("yaw_ref %d", practical_stab.cmd.psi);
+    if(yaw_rate == 0) {
+      if(keep_turning>0) {
+	keep_turning = keep_turning - 1;
+	practical_stab.cmd.psi += keep_yaw_rate;
       }
-      else
-        practical_stab.desired_vx = 0;
+    }
+    else{
+      keep_yaw_rate = yaw_rate;
+      keep_turning = 500/yaw_rate;
+    }
+      
+    if(yaw_rate == 0){
+      practical_stab.desired_vx = PRACTICAL_DESIRED_VX;
+      //practical_stab.desired_vs = speed_pot;
+    }
+    else
+      practical_stab.desired_vx = 0;
+    //}     
+      
+ */
 
-    //}
+void guidance_h_module_run(bool_t in_flight)
+{
+  if(TRUE) {
+    // Set the height
+    guidance_v_z_sp = -1 << 8;    
+     
+     //Input fiter for yaw_rate
+     yaw_rate = (int32_t)(alpha_fil*ANGLE_BFP_OF_REAL(r_dot_new));
+     practical_stab.cmd.psi = stateGetNedToBodyEulers_i()->psi + yaw_rate;
+     
+     yaw_rate_write = ACCEL_FLOAT_OF_BFP(yaw_rate); 
+     yaw_ref_write = ACCEL_FLOAT_OF_BFP(practical_stab.cmd.psi);
+     
+     INT32_ANGLE_NORMALIZE(practical_stab.cmd.psi);
+     practical_stab.desired_vx = v_desired;
 
     // Calculate the speed in body frame
     struct FloatVect2 speed_cur, speed_err;

@@ -43,6 +43,8 @@
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
 
+#include "modules/read_matrix_serial/read_matrix_serial.h"
+
 /* default sonar/agl to use in practical visual_estimator */
 #ifndef PRACTICAL_AGL_ID
 #define PRACTICAL_AGL_ID ABI_BROADCAST
@@ -63,6 +65,7 @@ static void practical_tx_img(struct image_t *img, bool_t rtp);  //< Trnsmit an i
 static void practical_integral_img_detect(struct image_t *img, uint16_t sub_img_h, uint16_t feature_size, struct image_t* int_y, struct image_t* int_u, struct image_t* int_v);
 
 void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading);
+void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading);
 uint8_t point_in_sector(struct image_t *img, struct point_t point);
 uint16_t num_features_in_sector[4] = {0, 0, 0, 0};
 
@@ -176,49 +179,20 @@ void practical_module_stop(void)
   // TODO: fix thread stop
 }
 
-
-
-/**
- * Do the main calculation
- */
-static void *practical_module_calc(void *data __attribute__((unused)))
-{
-  // Start the streaming on the V4L2 device
-  if (!v4l2_start_capture(practical_video_dev)) {
-    printf("[practical_module] Could not start capture of the camera\n");
-    return 0;
-  }
-  
    // struct image_t int_y, int_u, int_v;  
 
-/*#if PRACTICAL_DEBUG
-  // Create a new JPEG image
-  struct image_t img_jpeg, img_small;
-  image_create(&img_jpeg, practical_video_dev->w, practical_video_dev->h, IMAGE_JPEG);
-  image_create(&img_small,
-    practical_video_dev->w/4,
-    practical_video_dev->h/4,
-    IMAGE_YUV422);
-#endif */
+    /*#if PRACTICAL_DEBUG
+      // Create a new JPEG image
+      struct image_t img_jpeg, img_small;
+      image_create(&img_jpeg, practical_video_dev->w, practical_video_dev->h, IMAGE_JPEG);
+      image_create(&img_small,
+	practical_video_dev->w/4,
+	practical_video_dev->h/4,
+	IMAGE_YUV422);
+    #endif */
   
-  //uint16_t img_height = 200;
-
-  /* Main loop of the optical flow calculation */
-  while (TRUE) {
-    
-    struct image_t img;
-    struct image_t img_small;
-    
-    v4l2_image_get(practical_video_dev, &img);
-   // image_yuv422_downsample(&img, &img_small, 4);
-    
-    image_yuv422_colorfilt_CN(&img, &img, practical.y_m, practical.y_M, practical.u_m, practical.u_M, practical.v_m, practical.v_M, cnt_obst);
-    nav_cal_heading(1.0,WP_p1, WP_p2, WP_p3);
-    
-    v4l2_image_free(practical_video_dev, &img);
-    image_free(&img_small);
-    
-   // Try to fetch an image    
+   //uint16_t img_height = 200;
+   //   // Try to fetch an image    
     // counter++;
     // if ((get_sys_time_msec()-last_second) > 1000) {
     //   printf("Count: %d\n", counter);
@@ -277,7 +251,6 @@ static void *practical_module_calc(void *data __attribute__((unused)))
 
     // Free the image
     //v4l2_image_free(practical_video_dev, &img);
-  }
 
   //image_free(&int_y);
   //image_free(&int_u);
@@ -288,6 +261,44 @@ static void *practical_module_calc(void *data __attribute__((unused)))
   image_free(&img_small);
 #endif
 */
+
+
+/**
+ * Do the main calculation
+ */
+static void *practical_module_calc(void *data __attribute__((unused)))
+{  
+  bool_t stereo_flag = 0;
+  
+  // Start the streaming on the V4L2 device
+  if (!v4l2_start_capture(practical_video_dev)) {
+    printf("[practical_module] Could not start capture of the camera \n");
+    return 0;
+  }
+  
+  struct image_t img;
+  struct image_t img_small;
+	        
+  /* Main loop of the optical flow calculation */
+  while (TRUE) {
+    
+     if(stereo_flag==0){
+
+	    v4l2_image_get(practical_video_dev, &img);
+	  // image_yuv422_downsample(&img, &img_small, 4);
+	    
+	    image_yuv422_colorfilt_CN(&img, &img, practical.y_m, practical.y_M, practical.u_m, practical.u_M, practical.v_m, practical.v_M, cnt_obst);
+	    nav_cal_heading(1.0,WP_p1, WP_p2, WP_p3);
+	    
+	    v4l2_image_free(practical_video_dev, &img);
+	    image_free(&img_small);
+      }	
+      else if(stereo_flag==1){
+	    
+	    nav_cal_heading_stereo(1.0,WP_p1, WP_p2, WP_p3);
+	
+      }
+  } 
   
 }
 
@@ -347,15 +358,122 @@ void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_hea
   }
   
  //calculate angular accelaration from potential field
-  r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2);// + potential_obst;
+  r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
   delta_heading = 0.5*r_dot_new*dt*dt;
   //Integrate using simple intgration CHECK for time step!
   heading_new = current_heading + 0.5*r_dot_new*dt*dt;
 
-  if(flag_speed_control=TRUE){
+  if(flag_speed_control=FALSE){
     speed_pot = vmax*exp(-kv*potential_obst_integrated) - epsilon;
     if(speed_pot>0){
-	//dist_oa = speed_pot*dt;
+	dist_oa = speed_pot*dt;
+    }
+    else if(speed_pot<=0){
+       dist_oa = 0;
+       speed_pot = 0;
+    }
+  }
+  
+
+  /*waypoints_OA[follow].x = stateGetPositionEnu_f()->x + sinf(heading_new)*dist_oa;
+  waypoints_OA[follow].y = stateGetPositionEnu_f()->y + cosf(heading_new)*dist_oa;
+  
+  waypoints_OA[wp_heading].x = stateGetPositionEnu_f()->x + sinf(heading_new)*2;
+  waypoints_OA[wp_heading].y = stateGetPositionEnu_f()->y + cosf(heading_new)*2;
+  
+  wp_tmp_int_oa.x = POS_BFP_OF_REAL(waypoints_OA[follow].x);
+  wp_tmp_int_oa.y = POS_BFP_OF_REAL(waypoints_OA[follow].y);
+  wp_tmp_int_oa.z = POS_BFP_OF_REAL(waypoints_OA[follow].z);
+  
+  wp_tmp_int_oa2.x = POS_BFP_OF_REAL(waypoints_OA[wp_heading].x);
+  wp_tmp_int_oa2.y = POS_BFP_OF_REAL(waypoints_OA[wp_heading].y);
+  wp_tmp_int_oa2.z = POS_BFP_OF_REAL(waypoints_OA[wp_heading].z);
+   
+  
+ nav_move_waypoint(follow, &wp_tmp_int_oa);
+ nav_move_waypoint(wp_heading, &wp_tmp_int_oa2);*/
+  
+}
+
+void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading){
+  bool_t flag_speed_control = TRUE;
+  
+  //int width = cnt_obst[0];
+  //struct EnuCoor_i waypoints[NB_WAYPOINT];
+  
+  //read in value of waypoints
+  struct EnuCoor_i wp_tmp_int_oa;
+  struct EnuCoor_i wp_tmp_int_oa2;
+
+  //read in position
+  struct FloatVect2 current_pos = {stateGetPositionEnu_f()->x, stateGetPositionEnu_f()->y};
+  struct FloatVect2 target = {waypoints_OA[goal].x, waypoints_OA[goal].y};
+  struct FloatVect2 pos_diff;
+
+  current_heading = stateGetNedToBodyEulers_f()->psi;
+  
+  VECT2_DIFF(pos_diff, target, current_pos);
+  heading_goal_f = atan2f(pos_diff.x, pos_diff.y);
+  
+  heading_goal_ref = current_heading-heading_goal_f;
+  if (heading_goal_ref>M_PI){
+    heading_goal_ref = heading_goal_ref - 2*M_PI;
+  }
+  else if(heading_goal_ref<-M_PI){
+      heading_goal_ref = heading_goal_ref + 2*M_PI;
+  }
+  
+ uint8_t matrix_read[16];
+  
+  for (int i_m=0;i_m<16;i_m++){
+    matrix_read[i_m] = lineBuffer[i_m]; 
+  }
+  
+ //define image size HAS TO BE CHECKED!
+ int image_size[2] = {1280, 720};
+ float image_fow[2] = {0.837758041, 0.628318531};//based on FOW of 48, by 38
+ float angle_change;
+ 
+ //define potential field variables
+ //float r_new;
+ float r_old = stateGetBodyRates_f()->r;
+
+ float potential_obst = 0; 
+ float potential_obst_integrated = 0;
+ 
+ //define delta t for integration! check response under 0.1 and 1
+ float dt = 0.5;
+ 
+ //calculate position angle and angular widht of matrix
+ for(int i_o=0;i_o<4;i_o++){ 
+      obst_width[i_o] = image_fow[0]/4;
+      obst_angle[i_o] = 0;
+      
+ }
+ 
+ //calculate position angle and angular widht of obstacles
+  for(int i=0;i<5;i++){
+   obst_width[i] = cnt_obst[i]*(image_fow[0]/(float)image_size[0]);
+   obst_angle[i] = ((float)cnt_obst[10+i]+0.5*(float)cnt_obst[i])*(image_fow[0]/(float)image_size[0])-(0.5*image_fow[0]); 
+   
+      if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*image_fow[0])){
+	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+	potential_obst_write = potential_obst;
+	potential_obst_integrated = potential_obst_integrated + K_obst*c3*(abs(obst_angle[i])+1)/(c3*c3)*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+	
+      }
+  }
+  
+ //calculate angular accelaration from potential field
+  r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+  delta_heading = 0.5*r_dot_new*dt*dt;
+  //Integrate using simple intgration CHECK for time step!
+  heading_new = current_heading + 0.5*r_dot_new*dt*dt;
+
+  if(flag_speed_control=FALSE){
+    speed_pot = vmax*exp(-kv*potential_obst_integrated) - epsilon;
+    if(speed_pot>0){
+	dist_oa = speed_pot*dt;
     }
     else if(speed_pot<=0){
        dist_oa = 0;

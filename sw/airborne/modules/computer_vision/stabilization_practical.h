@@ -34,6 +34,10 @@
 #include "math/pprz_algebra_int.h"
 #include "guidance/guidance_h.h"
 #include "practical_module.h"
+//Speed + filter var
+extern float alpha_fil;
+extern float v_desired;
+
 
 /* The practical stabilization */
 struct practical_stab_t {
@@ -50,6 +54,8 @@ struct practical_stab_t {
 };
 extern struct practical_stab_t practical_stab;
 extern int32_t yaw_rate;
+extern float yaw_rate_write;
+extern float yaw_ref_write;
 extern float r_dot_new;
 extern float speed_pot;
 

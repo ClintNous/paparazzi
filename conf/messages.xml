@@ -1916,8 +1916,8 @@
 
   <!--216 is NOT free -->
   <message name ="YAW_RATE" id="216">
-    <field name ="YAW_RATE" type="int32"/>
-    <field name ="YAW_REF" type="int32"/>
+    <field name ="YAW_RATE" type="float"/>
+    <field name ="YAW_REF" type="float"/>
     <field name ="R_DOT_NEW" type="float"/>
   </message> 
   <!--217 is free -->
@@ -1999,7 +1999,10 @@
     <field name="cmd_theta"   type="int32" alt_unit="deg" alt_unit_coef="0.0139882"/>
   </message>
 
-  <!--229 is free -->
+  <!--229 is NOT free -->
+  <message name="DISTANCE_MATRIX" id="229">
+    <field name="lineBuffer" type="uint8[]"/>
+  </message>
 
   <message name="AHRS_ARDRONE2" id="230">
     <field name="state" type="uint32" />
