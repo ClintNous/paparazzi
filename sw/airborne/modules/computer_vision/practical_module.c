@@ -430,9 +430,12 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
   }
   
  //define image size HAS TO BE CHECKED!
- int image_size[2] = {1280, 720};
- float image_fow[2] = {0.837758041, 0.628318531};//based on FOW of 48, by 38
+ int stereo_size[2] = {1, 1};
+ int size_matrix[3] = {1, 4, 4};
+ float stereo_fow[2] = {0.837758041, 0.628318531};//based on FOW of 48, by 38
  float angle_change;
+ float r_o;
+ float r_r;
  
  //define potential field variables
  //float r_new;
@@ -445,18 +448,19 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  float dt = 0.5;
  
  //calculate position angle and angular widht of matrix
- for(int i_o=0;i_o<4;i_o++){ 
-      obst_width[i_o] = image_fow[0]/4;
-      obst_angle[i_o] = 0;
-      
- }
+ for(int i_o=0;i_o<size_matrix[2];i_o++){ 
+      obst_width[i_o] = stereo_fow[0]/size_matrix[2];
+      obst_angle[i_o] = - 0.5*stereo_fow[0] - stereo_fow[0]/size_matrix[2] + stereo_fow[0]/size_matrix[2]/2 + (stereo_fow[0]/size_matrix[2])*i_o;
+  
+}
  
  //calculate position angle and angular widht of obstacles
-  for(int i=0;i<5;i++){
-   obst_width[i] = cnt_obst[i]*(image_fow[0]/(float)image_size[0]);
-   obst_angle[i] = ((float)cnt_obst[10+i]+0.5*(float)cnt_obst[i])*(image_fow[0]/(float)image_size[0])-(0.5*image_fow[0]); 
+  for(int i=0;i<size_matrix[2];i++){
+       r_o = (tan(obst_angle[i]+0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2) - (tan(obst_angle[i]-0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2);
+       r_r = 0.3;
+       c5 = M_PI/2 - 2*atan(r_o/(r_o+r_r));
    
-      if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*image_fow[0])){
+      if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*stereo_fow[0])){
 	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
 	potential_obst_write = potential_obst;
 	potential_obst_integrated = potential_obst_integrated + K_obst*c3*(abs(obst_angle[i])+1)/(c3*c3)*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
@@ -499,6 +503,187 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
   
  nav_move_waypoint(follow, &wp_tmp_int_oa);
  nav_move_waypoint(wp_heading, &wp_tmp_int_oa2);*/
+  
+}
+
+bool_t nav_cal_heading_vector(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading){
+  bool_t flag_speed_control = FALSE;
+  
+  //int width = cnt_obst[0];
+  //struct EnuCoor_i waypoints[NB_WAYPOINT];
+  
+  //read in value of waypoints
+  struct EnuCoor_i wp_tmp_int_oa;
+  struct EnuCoor_i wp_tmp_int_oa2;
+
+  //read in position
+  struct FloatVect2 current_pos = {stateGetPositionEnu_f()->x, stateGetPositionEnu_f()->y};
+  struct FloatVect2 target = {waypoints_OA[goal].x, waypoints_OA[goal].y};
+  struct FloatVect2 pos_diff;
+  current_heading = stateGetNedToBodyEulers_f()->psi;
+  
+  VECT2_DIFF(pos_diff, target, current_pos);
+  heading_goal_f = atan2f(pos_diff.x, pos_diff.y);
+  
+  heading_goal_ref = current_heading-heading_goal_f;
+  if (heading_goal_ref>M_PI){
+    heading_goal_ref = heading_goal_ref - 2*M_PI;
+  }
+  else if(heading_goal_ref<-M_PI){
+      heading_goal_ref = heading_goal_ref + 2*M_PI;
+  }
+  
+  //Calculate side slip TODO
+  float side_slip = 0.0;
+  
+  //define image size + FOW STEREO camera, has to be checked!! TODO
+ int stereo_size[2] = {1, 1};
+ float stereo_fow[2] = {0.6981, 0.6981}; // 40 deg
+ int size_matrix[3] = {1, 4, 4};
+ 
+ 
+ //read in values from STEREO board: 
+float StereoInput[1][4][4] = {{{20, 20, 0.1, 20},
+			   {20, 20, 0.1, 20},
+			   {20, 20, 0.1, 20},
+			   {20, 20, 0.1, 20}}};
+			   
+//Repulsion force, Attracforce and total force with goal
+struct FloatVect3 Repulsionforce_Kan = {0,0,0};
+struct FloatVect3 Total_Kan = {0,0,0};
+struct FloatVect3 Attractforce_goal = {0,0,0};
+
+//Calculate Attractforce_goal size = 1; 
+Attractforce_goal.x = 1*cos(heading_goal_f);
+Attractforce_goal.y = 1*sin(heading_goal_f);
+Attractforce_goal.z = 0;
+
+//Variables needed for Holenstein
+float Cfreq = 5.0;  
+float Ca = 0.0;
+float Cv = 0.0;
+float Ko = 1.0;
+float Kg = 1.0;
+   
+ 
+ //init angle values in input matrix 
+float angle_hor = current_heading - 0.5*stereo_fow[0] - stereo_fow[0]/size_matrix[2] + stereo_fow[0]/size_matrix[2]/2;
+float angle_ver = 0;
+ 
+for (int i1=0;i1<size_matrix[0];i1++){
+    for (int i3=0;i3<size_matrix[2];i3++){
+        angle_hor = angle_hor + stereo_fow[0]/size_matrix[2];
+        angle_ver = 0.5*stereo_fow[1] + stereo_fow[1]/size_matrix[1] - stereo_fow[1]/size_matrix[1]/2;
+	for (int i2=0;i2<size_matrix[1];i2++){
+	     angle_ver = angle_ver - stereo_fow[1]/size_matrix[1];
+            
+	     //Method Kandil
+	     if(angle_hor*Cfreq<0.5*M_PI){
+	        Ca = cos((angle_hor-(current_heading+side_slip))*Cfreq);
+	     }
+	     else{
+	        Ca = 0;
+	     }
+	     // Get speed in direction of angle_hor/angle_ver TODO
+	     //Cv = F1 + F2 * v/vmax;
+	     Cv = 1;
+	     if(pow(Cv*Ca/(StereoInput[i1][i2][i3]-0.2),2)<1000){
+	        Repulsionforce_Kan.x = Repulsionforce_Kan.x - pow(Cv*Ca/(StereoInput[i1][i2][i3]-0.2),2)*sin(angle_hor)*cos(angle_ver);
+		//Repulsionforce_Kan.y = Repulsionforce_Kan.y - Cv*Ca/(StereoInput[i1][i2][i3]-0.2)^2*cos(angle_hor)*cos(angle_ver);
+		//Repulsionforce_Kan.z = Repulsionforce_Kan.z - Cv*Ca/(StereoInput[i1][i2][i3]-0.2)^2*sin(angle_ver);
+	     }
+	     else{
+	       	Repulsionforce_Kan.x = Repulsionforce_Kan.x - 1000*sin(angle_hor)*cos(angle_ver);
+		//Repulsionforce_Kan.y = Repulsionforce_Kan.y - 1000*cos(angle_hor)*cos(angle_ver);
+		//Repulsionforce_Kan.z = Repulsionforce_Kan.z - 1000*sin(angle_ver);
+	     }
+	}
+    }
+}
+
+//Normalize for ammount entries in Matrix
+//Repulsionforce_Kan = Repulsionforce_Kan/(float)(size_matrix[1]*size_matrix[2]);
+VECT3_SMUL(Repulsionforce_Kan, Repulsionforce_Kan, 1.0/(size_matrix[1]*size_matrix[2])); 
+
+//Repulsionforce_Kan_write[0] = (float)Repulsionforce_Kan.x;
+//Repulsionforce_Kan_write[1] = (float)Repulsionforce_Kan.y;
+//Repulsionforce_Kan_write[2] = (float)Repulsionforce_Kan.z;
+
+VECT3_SMUL(Repulsionforce_Kan,Repulsionforce_Kan,Ko);
+VECT3_SMUL(Attractforce_goal, Attractforce_goal, Kg);
+
+
+//Total force 
+VECT3_ADD(Total_Kan, Repulsionforce_Kan);
+VECT3_ADD(Total_Kan, Attractforce_goal);
+
+//Total_Kan_write[0] = (float)Total_Kan.x;
+//Total_Kan_write[1] = (float)Total_Kan.y;
+//Total_Kan_write[2] = (float)Total_Kan.z;
+
+//  float angle_change;
+//  
+//  //define potential field variables
+//  //float r_new;
+//  float r_old = stateGetBodyRates_f()->r;
+// 
+//  float potential_obst = 0; 
+//  float potential_obst_integrated = 0;
+//  float speed_pot;
+//  
+//  //define delta t for integration! check response under 0.1 and 1
+//  float dt = 0.5;
+//  
+//   //calculate position angle and angular widht of obstacles
+//   for(int i=0;i<5;i++){
+//   obst_width[i] = cnt_obst[i]*(image_fow[0]/(float)image_size[0]);
+//   obst_angle[i] = ((float)cnt_obst[10+i]+0.5*(float)cnt_obst[i])*(image_fow[0]/(float)image_size[0])-(0.5*image_fow[0]); 
+//   
+//       if (cnt_obst[i]>10 && obst_angle[i] != -(0.5*image_fow[0])){
+// 	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+// 	potential_obst_write = potential_obst;
+// 	potential_obst_integrated = potential_obst_integrated + K_obst*c3*(abs(obst_angle[i])+1)/(c3*c3)*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
+// 	
+//       }
+//   }
+//   
+//   //calculate angular accelaration from potential field
+//   r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+//   delta_heading = 0.5*r_dot_new*dt*dt;
+//   //Integrate using simple intgration CHECK for time step!
+//   heading_new = current_heading + 0.5*r_dot_new*dt*dt;
+/*
+  
+  if(flag_speed_control=TRUE){
+    speed_pot = vmax*exp(-kv*potential_obst_integrated) - epsilon;
+    if(speed_pot>0){
+	dist_oa = speed_pot*dt;
+    }
+    else if(speed_pot<=0){
+       dist_oa = 0;
+    }
+  }*/
+  
+
+  waypoints_OA[follow].x = stateGetPositionEnu_f()->x + sinf(heading_new)*dist_oa;
+  waypoints_OA[follow].y = stateGetPositionEnu_f()->y + cosf(heading_new)*dist_oa;
+  
+  waypoints_OA[wp_heading].x = stateGetPositionEnu_f()->x + sinf(heading_new)*2;
+  waypoints_OA[wp_heading].y = stateGetPositionEnu_f()->y + cosf(heading_new)*2;
+  
+  wp_tmp_int_oa.x = POS_BFP_OF_REAL(waypoints_OA[follow].x);
+  wp_tmp_int_oa.y = POS_BFP_OF_REAL(waypoints_OA[follow].y);
+  wp_tmp_int_oa.z = POS_BFP_OF_REAL(waypoints_OA[follow].z);
+  
+  wp_tmp_int_oa2.x = POS_BFP_OF_REAL(waypoints_OA[wp_heading].x);
+  wp_tmp_int_oa2.y = POS_BFP_OF_REAL(waypoints_OA[wp_heading].y);
+  wp_tmp_int_oa2.z = POS_BFP_OF_REAL(waypoints_OA[wp_heading].z);
+   
+  
+ //nav_move_waypoint(follow, &wp_tmp_int_oa);
+ //nav_move_waypoint(wp_heading, &wp_tmp_int_oa2);
+  
+ return FALSE;
   
 }
 
