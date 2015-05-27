@@ -31,6 +31,9 @@
 extern void serial_init(void);
 extern void serial_update(void);
 extern void serial_start(void);
-
-extern uint8_t lineBuffer[16];
+//int matrixRows=4;
+//int matrixColumns=4;
+//int camerasAmount=1;
+//extern uint8_t lineBuffer[matrixRows*matrixColumns*camerasAmount];
+extern uint8_t lineBuffer[96];
 #endif

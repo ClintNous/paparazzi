@@ -33,18 +33,18 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <serial_port.h>
-#define SIZE_OF_ONE_IMAGE 52
+#define SIZE_OF_ONE_IMAGE 152
 
 
 
 char psResponse[2*SIZE_OF_ONE_IMAGE];
 double n;
-uint8_t MATRIX_WIDTH = 4;
+uint8_t MATRIX_WIDTH = 24;
 
 struct termios tty;
 int spot=0;
 
-uint8_t lineBuffer[16];
+uint8_t lineBuffer[96];
 struct SerialPort *port;
 uint8_t response[SIZE_OF_ONE_IMAGE*2];
 
@@ -72,7 +72,7 @@ void serial_init(void) {
 	printf("Init serial\n");
 	memset(response, '\0', sizeof response);
 	port = serial_port_new();
-	speed_t speed = B3000000;
+	speed_t speed = B1000000;
 	int result=serial_port_open_raw(port,"/dev/ttyUSB0",speed);
 	printf("Result open: %d", port->fd);
 
