@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 
 
 
-LAST_DATA=range(0,19)
-
+LAST_DATA=range(10,164)
+AVERAGE_DATA = True
 def draw_sonar_visualisation(matrix):
     MATRIX_HEIGHT=4
     plt.ion()
@@ -32,10 +32,20 @@ def draw_sonar_visualisation(matrix):
     ax = plt.subplot(111, polar=True)
     ax.clear()
     colors = ['r', 'g', 'b', 'y', 'k']
-    for i in range(0, MATRIX_HEIGHT):
-        r = matrix[i]
-        r = (map(abs, map(int, r)))
-        ax.plot(theta, r, color=colors[i], linewidth=3)
+    if AVERAGE_DATA:
+	toPlotSum = np.array(matrix[0])
+	for i in range(1, MATRIX_HEIGHT):
+		toPlotSum += np.array(matrix[i])
+	r = toPlotSum/MATRIX_HEIGHT	
+	r = (map(abs, map(int, r)))
+	theta = np.append(theta,theta[0])
+	r = np.append(r,r[0])
+	ax.plot(theta, r, color=colors[0], linewidth=5)
+    else:
+    	for i in range(0, MATRIX_HEIGHT):
+		r = matrix[i]
+		r = (map(abs, map(int, r)))
+		ax.plot(theta, r, color=colors[i], linewidth=3)	
     ax.set_rmax(50.0)
     ax.grid(True)
     plt.draw()
@@ -49,11 +59,11 @@ class Visualization:
     def onmsgproc(self, agent, *larg):
         global LAST_DATA
         data = str(larg[0]).split(' ')
-        print 'received data' , data, 'And this would mean: ', data[2::]
+       
 	LAST_DATA = data[2::][0].split(',')
 	for i in range(0,len(LAST_DATA)):
 		LAST_DATA[i]=int(LAST_DATA[i])
-	print 'LAST_DATA IS NOW: ', LAST_DATA
+	
 	
      
 class Visualizer:
@@ -95,8 +105,8 @@ def run():
 
     visualizer = Visualizer()
     # INITIALISE EVERYTHING HERE BECAUSE PLOTTING CAN ONLY HAPPEN ON THE MAIN THREAD!
-    X = range(0,15)
-    Y = range(0,15)
+    X = range(10,15)
+    Y = range(10,15)
     plt.ion()
     graph = plt.plot(X,Y)[0]
     plt.draw()
@@ -104,7 +114,6 @@ def run():
     try:
         while True:
             time.sleep(.02)
-	    matrix=[[0]*5 for i in range(5)]
 	    matrix = []
 	    horizontalPixelsAmount=24
 	    verticalPixelsAmount=4
