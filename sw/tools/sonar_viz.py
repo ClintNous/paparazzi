@@ -21,9 +21,9 @@ import matplotlib.pyplot as plt
 
 
 LAST_DATA=range(10,164)
-AVERAGE_DATA = True
+MATRIX_HEIGHT=5
+AVERAGE_DATA = False
 def draw_sonar_visualisation(matrix):
-    MATRIX_HEIGHT=4
     plt.ion()
     #matrix = np.rot90(matrix,3)
     r = matrix[1]
@@ -115,8 +115,8 @@ def run():
         while True:
             time.sleep(.02)
 	    matrix = []
-	    horizontalPixelsAmount=24
-	    verticalPixelsAmount=4
+	    horizontalPixelsAmount=30
+	    verticalPixelsAmount=5
 	    for i in range(0,verticalPixelsAmount):
 	        toAdd = LAST_DATA[i*horizontalPixelsAmount:(i+1)*horizontalPixelsAmount]
 		print toAdd
