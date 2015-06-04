@@ -26,9 +26,10 @@ LAST_DATA=range(10,164)
 LAST_LINE=range(10,100)
 MATRIX_HEIGHT=9
 LINE_RECEIVED=0
+LAST_ANGLE=0
 AVERAGE_DATA = False
 ONLY_DRAW_LAST=True
-def draw_sonar_visualisation(matrix, single_line):
+def draw_sonar_visualisation(matrix, single_line, last_angle):
     try:
 	    plt.ion()
 	    r = matrix[1]
@@ -51,7 +52,7 @@ def draw_sonar_visualisation(matrix, single_line):
 		r = (map(abs, map(int, r)))
 		theta = np.append(theta,theta[0])
 		r = np.append(r,r[0])
-		print 'len R ', len(r), ' len theta: ', len(theta)
+		#print 'len R ', len(r), ' len theta: ', len(theta)
 		ax.plot(theta, r, color=colors[0], linewidth=5)
 	    else:
 		for i in range(0, MATRIX_HEIGHT):
@@ -62,6 +63,10 @@ def draw_sonar_visualisation(matrix, single_line):
 			print 'R is len ', len(r) , ' theta is len: ', len(theta)
 			print 'now at i: ', i, ' colors len: ', len(colors)
 			ax.plot(theta, r, color=colors[i%len(colors)], linewidth=3)	
+	    theta=[last_angle,last_angle+0.01]
+	    r=[100,0]
+	    print 'plotting: ' , theta, ' , R: ' , r
+	    ax.plot(theta, r, color='k', linewidth=3)	
 	    ax.set_rmax(15.0)
 	    ax.grid(True)
 	    plt.draw()
@@ -69,6 +74,10 @@ def draw_sonar_visualisation(matrix, single_line):
         print 'Stopping program! ' , eee
         PrintException()
  
+
+
+
+
 
 def PrintException():
     exc_type, exc_obj, tb = sys.exc_info()
@@ -84,13 +93,18 @@ class Visualization:
     def __init__(self, parent):
          print 'Initialisation visualization'
     def onmsgproc(self, agent, *larg):
-        global LAST_DATA,LINE_RECEIVED
+        global LAST_DATA,LINE_RECEIVED,LAST_ANGLE
         data = str(larg[0]).split(' ')
-	LINE_RECEIVED=int(data[2])
-	LAST_DATA = data[3::][0].split(',')
+	#print 'data received: ',data
+	if data[1]=='R_DOT_AND_SPEED':
+		print 'angle: ' ,data[2]
+		LAST_ANGLE=float(data[2])
+	elif data[1]=='DISTANCE_MATRIX':	
+		LINE_RECEIVED=int(data[2])
+		LAST_DATA = data[3::][0].split(',')
 	
-	for i in range(0,len(LAST_DATA)):
-		LAST_DATA[i]=int(LAST_DATA[i])
+		for i in range(0,len(LAST_DATA)):
+			LAST_DATA[i]=int(LAST_DATA[i])
 	
 	
      
@@ -111,6 +125,7 @@ class Visualizer:
 
         # list of all message names
         messages = []
+        messages.append("R_DOT_AND_SPEED")
         messages.append("DISTANCE_MATRIX")
 
         # bind to set of messages (ie, only bind each message once)
@@ -146,12 +161,8 @@ def run():
             time.sleep(.02)
 	    horizontalPixelsAmount=36
 	    verticalPixelsAmount=6
-#	    for i in range(0,verticalPixelsAmount):
-#	        toAdd = LAST_DATA[i*horizontalPixelsAmount:(i+1)*horizontalPixelsAmount]
-#		print toAdd
-#		matrix.append(toAdd)
             matrix[LINE_RECEIVED]=LAST_DATA
-	    draw_sonar_visualisation(matrix,LAST_DATA)
+	    draw_sonar_visualisation(matrix,LAST_DATA,LAST_ANGLE)
 
               
 
