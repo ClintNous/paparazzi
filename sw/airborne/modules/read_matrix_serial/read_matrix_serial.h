@@ -27,10 +27,12 @@
 #define READ_MATRIX_SERIAL_H
 
 #include <stdint.h>
+extern uint8_t *imageBuffer;
 
+void allocateSerialBuffer(int, int);
+int isEndOfImage(uint8_t*);
 extern void serial_init(void);
 extern void serial_update(void);
 extern void serial_start(void);
 
-extern uint8_t lineBuffer[16];
 #endif

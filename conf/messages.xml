@@ -2003,6 +2003,7 @@
 
   <!--229 is NOT free -->
   <message name="DISTANCE_MATRIX" id="229">
+    <field name="line" type="uint8"/>
     <field name="lineBuffer" type="uint8[]"/>
   </message>
 
