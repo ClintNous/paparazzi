@@ -109,10 +109,10 @@ ImageProperties search_start_position(uint8_t *raw, int size){
 
     // Search for the startposition of the image, the end of the image, and the width and height of the image
     for (int i=0; i < size-1; i++){
-    	printf("Now checking: %d \n",raw[i]);
+    	//printf("Now checking: %d \n",raw[i]);
     	// Check the first 3 bytes for the pattern 255-0-0, then check what special byte is encoded next
         if ((raw[i] == 255) && (raw[i + 1] == 0) && (raw[i + 2] == 0)){
-        	printf("Possible thing: %d\n", raw[i+3]);
+        	//printf("Possible thing: %d\n", raw[i+3]);
             if (raw[i + 3] == 171 && imageProperties.positionImageStart >= 0){ // End of image
                 sync = i;
                 printf("Found image end, breaking");
@@ -146,8 +146,6 @@ void serial_init(void) {
 	printf("Size of image is now: %d\n", SIZE_OF_ONE_IMAGE);
 
 	allocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
-	//memset(response, '\0', sizeof response);
-//	memset(imageBuffer, '\0', sizeof imageBuffer);
 
 	port = serial_port_new();
 	speed_t speed = B1000000;
@@ -209,13 +207,17 @@ void serial_update(void) {
 		//lineBuffer=realloc(lineBuffer,20);
 
 		int arrayIndex=0;
+		int lineNumber=0;
 		for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.lineCount+8;i++){
+			printf("Now reading: %d \n", response[i]);
 			if ((response[i] == 255) && (response[i + 1] == 0) && (response[i + 2] == 0)){
 				if (response[i + 3] == 128){
 				// Start Of Line
+					printf("Ok, reading the start of the line: %d " , lineNumber++);
 					int startOfBuf = i + 4;
-					int endOfBuf = (i + 4 + 30);
+					int endOfBuf = (i + 4 + imageProperties.lineLength);
 					for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
+						printf("ArrayIndex: %d", arrayIndex);
 						imageBuffer[arrayIndex] = response[indexInBuffer];
 						arrayIndex++;
 					}
@@ -223,11 +225,11 @@ void serial_update(void) {
 			}
 		}
 
-		for (int x = 0; x < SIZE_OF_ONE_IMAGE; x++)
+		for (int x = 0; x < imageProperties.lineCount*imageProperties.lineLength; x++)
 		{
 		  printf(" ,%d ",imageBuffer[x]);
-		  if (x%30==0 && x>0){
-			  printf("\n");
+		  if (x%imageProperties.lineLength==0 && x>0){
+			  printf("line end\n");
 		  }
 		}
 	}
