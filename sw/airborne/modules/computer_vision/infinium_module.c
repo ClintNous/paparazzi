@@ -100,7 +100,7 @@ static void send_CNT_OBST(void) {
   DOWNLINK_SEND_R_DOT_AND_SPEED (DefaultChannel, DefaultDevice, &r_dot_new, &r_dot_new_sin,  &r_dot_new_cos, &speed_pot);
  }
 
-/**
+/*
  * Initialize the practical module
  */
 void practical_module_init(void)
@@ -399,7 +399,7 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  uint8_t matrix_read[16];
   
   for (int i_m=0;i_m<16;i_m++){
-    matrix_read[i_m] = lineBuffer[i_m]; 
+    matrix_read[i_m] = imageBuffer[i_m]; 
   }
   
  //define image size HAS TO BE CHECKED!

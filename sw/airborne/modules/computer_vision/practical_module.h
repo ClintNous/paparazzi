@@ -69,5 +69,7 @@ extern float vmax;
 extern int32_t cnt_obst[20];
 float heading_goal_f;
 float heading_goal_ref;
+float r_dot_new_cos;
+float r_dot_new_sin;
 
 #endif /* PRACTICAL_MODULE_H */

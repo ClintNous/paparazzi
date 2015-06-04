@@ -94,7 +94,7 @@ static void send_CNT_OBST(void) {
  }
 
  static void send_R_DOT_AND_SPEED(void) {
-  DOWNLINK_SEND_R_DOT_AND_SPEED (DefaultChannel, DefaultDevice, &r_dot_new, &speed_pot);
+  DOWNLINK_SEND_R_DOT_AND_SPEED (DefaultChannel, DefaultDevice, &r_dot_new, &r_dot_new_sin,  &r_dot_new_cos, &speed_pot);
  }
 
 /**
@@ -359,6 +359,8 @@ void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_hea
   
  //calculate angular accelaration from potential field
   r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+  r_dot_new_cos = cos(r_dot_new);
+  r_dot_new_sin = sin(r_dot_new);
   delta_heading = 0.5*r_dot_new*dt*dt;
   //Integrate using simple intgration CHECK for time step!
   heading_new = current_heading + 0.5*r_dot_new*dt*dt;
@@ -426,7 +428,7 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  uint8_t matrix_read[16];
   
   for (int i_m=0;i_m<16;i_m++){
-    matrix_read[i_m] = lineBuffer[i_m]; 
+    matrix_read[i_m] = imageBuffer[i_m]; 
   }
   
  //define image size HAS TO BE CHECKED!
@@ -470,6 +472,8 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
   
  //calculate angular accelaration from potential field
   r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+  r_dot_new_cos = cos(r_dot_new);
+  r_dot_new_sin = sin(r_dot_new);
   delta_heading = 0.5*r_dot_new*dt*dt;
   //Integrate using simple intgration CHECK for time step!
   heading_new = current_heading + 0.5*r_dot_new*dt*dt;

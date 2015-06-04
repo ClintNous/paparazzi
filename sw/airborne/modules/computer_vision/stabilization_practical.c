@@ -201,7 +201,7 @@ void guidance_h_module_run(bool_t in_flight)
 
     // Calculate the speed in body frame
     struct FloatVect2 speed_cur, speed_err;
-    float psi = yaw_()->psi;
+    float psi = stateGetNedToBodyEulers_f()->psi;
     float s_psi = sin(psi);
     float c_psi = cos(psi);
     speed_cur.x = c_psi * stateGetSpeedNed_f()->x + s_psi * stateGetSpeedNed_f()->y;
