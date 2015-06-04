@@ -19,7 +19,7 @@ _NAME = 'attitude_viz'
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from matplotlib import colors as matcol
 
 
 LAST_DATA=range(10,164)
@@ -33,12 +33,18 @@ def draw_sonar_visualisation(matrix, single_line, last_angle):
     try:
 	    plt.ion()
 	    r = matrix[1]
-	    print 'R is now: ', r
 	    r = (map(abs, map(int, r)))
 	    theta = np.arange(0,2*np.pi,(2*np.pi)/len(r))
 	    ax = plt.subplot(111, polar=True)
 	    ax.clear()
-	    colors = ['r', 'g', 'b', 'y', 'k','r', 'g', 'b']
+	    print 'colors: ', matcol.cnames
+	    colors=[]
+	
+
+	    for element in matcol.cnames:
+		print 'color: ' , element
+		colors.append(element)
+#	    colors = ['r', 'g', 'b', 'y', 'k','r', 'g', 'b']
 	    if ONLY_DRAW_LAST:
 		r = single_line
 		r = (map(abs, map(int, r)))
