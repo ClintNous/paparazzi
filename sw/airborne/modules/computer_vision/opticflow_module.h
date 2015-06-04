@@ -34,6 +34,7 @@
 
 // Needed for settings
 extern struct opticflow_t opticflow;
+static struct opticflow_result_t opticflow_result; ///< The opticflow result
 
 // Module functions
 extern void opticflow_module_init(void);

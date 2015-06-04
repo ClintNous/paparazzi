@@ -32,7 +32,18 @@
     <load name="cv_opticflow.xml">
       <define name="OPTICFLOW_DEBUG" value="TRUE"/>
       <define name="OPTICFLOW_SHOW_CORNERS" value="TRUE"/>
-    </load>  
+    </load> 
+    <load name="infinium.xml">
+      <define name="PRACTICAL_DEBUG" value="FALSE"/>
+      <define name="PRACTICAL_Y_m" value="105"/>
+      <define name="PRACTICAL_Y_M" value="200"/>
+      <define name="PRACTICAL_U_m" value="50"/>
+      <define name="PRACTICAL_U_M" value="128"/>
+      <define name="PRACTICAL_V_m" value="160"/>
+      <define name="PRACTICAL_V_M" value="200"/>
+      <define name="PRACTICAL_thres" value="1"/>
+    </load>
+    <load name="read_matrix_serial.xml" />
   </modules>
 
   <commands>

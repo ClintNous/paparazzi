@@ -86,6 +86,14 @@ struct opticflow_stab_t opticflow_stab = {
   .desired_vy = VISION_DESIRED_VY
 };
 
+float r_dot_new = 0;
+float speed_pot = 0;
+float yaw_diff = 0;
+float alpha_fil = 0.1;
+float heading_target = 0;
+float new_heading = 0;
+float v_desired = 0.0;
+
 /**
  * Horizontal guidance mode enter resets the errors
  * and starts the controller.
@@ -133,8 +141,26 @@ void stabilization_opticflow_update(struct opticflow_result_t *result)
   if (autopilot_mode != AP_MODE_MODULE) {
     return;
   }
-
+  
+  if(TRUE){
+    //calculate new heading
+    //heading_temp = atan(result->vel_y/result->vel_x);
+    
+    //yaw_diff = alpha_fil*r_dot_new;
+    //new_heading = heading_target + yaw_diff; 
+    
+    new_heading = new_heading + alpha_fil*(r_dot_new-new_heading);
+    
+    opticflow_stab.desired_vx = sin(new_heading)*v_desired*100;
+    opticflow_stab.desired_vy = cos(new_heading)*v_desired*100;
+  }
+  else{
+    opticflow_stab.desired_vx = v_desired*100;
+    opticflow_stab.desired_vy = 0;
+  }
+  
   /* Calculate the error if we have enough flow */
+  
   float err_vx = 0;
   float err_vy = 0;
   if (result->tracked_cnt > 0) {

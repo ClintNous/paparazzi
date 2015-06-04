@@ -102,6 +102,7 @@ PRINT_CONFIG_VAR(OPTICFLOW_FAST9_THRESHOLD)
 #endif
 PRINT_CONFIG_VAR(OPTICFLOW_FAST9_MIN_DISTANCE)
 
+
 /* Functions only used here */
 static uint32_t timeval_diff(struct timeval *starttime, struct timeval *finishtime);
 static int cmp_flow(const void *a, const void *b);

@@ -1,0 +1,68 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="infinium" dir="computer_vision">
+  <doc>
+    <description>
+        Main practical module
+    </description>
+    
+    <section name="INFINIUM" prefix="INFINIUM_">
+    </section>
+  </doc>
+  
+  
+  <settings>
+	  <dl_settings NAME="INFINIUM Assignment">
+      <dl_settings name="Infinium">
+        <dl_setting var="practical.y_m" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="y_m" param="PRACTICAL_Y_m"/>
+        <dl_setting var="practical.y_M" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="y_M" param="PRACTICAL_Y_M"/>
+        <dl_setting var="practical.u_m" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="u_m" param="PRACTICAL_U_m"/>
+        <dl_setting var="practical.u_M" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="u_M" param="PRACTICAL_U_M"/>
+        <dl_setting var="practical.v_m" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="v_m" param="PRACTICAL_V_m"/>
+        <dl_setting var="practical.v_M" module="computer_vision/infinium_module" min="-512" step="1" max="512" shortname="v_M" param="PRACTICAL_V_M"/>
+        <dl_setting var="practical.trigger_thres" module="computer_vision/infinium_module" min="0" step="1" max="255" shortname="thres" param="PRACTICAL_thres"/>
+	<!-- <dl_setting var="pos_diff" module="computer_vision/infinium_module" min="0" step="0.1" max="10" shortname="pos_diff" param="POS_DIFF"/> -->
+	<dl_setting var="v_desired" module="computer_vision/opticflow/stabilization_opticflow" min="-5" step="0.1" max="5" shortname="v_des" param="V_DES"/> 
+	<dl_setting var="alpha_fil" module="computer_vision/opticflow/stabilization_opticflow" min="0" step="0.1" max="1" shortname="v_des" param="V_DES"/> 
+      </dl_settings>
+    </dl_settings>
+  </settings>
+
+  <header>
+    <file name="infinium_module.h"/>
+  </header>
+
+  <init fun="practical_module_init()"/>
+  <periodic fun="practical_module_run()" freq="5." start="practical_module_start()" stop="practical_module_stop()" autorun="TRUE"/>
+
+  <makefile target="ap">
+    <!-- Include the needed Computer Vision files -->
+    <define name="modules/computer_vision" type="include"/>
+    <file name="image.c" dir="modules/computer_vision/lib/vision"/>
+    <file name="jpeg.c" dir="modules/computer_vision/lib/encoding"/>
+    <file name="rtp.c" dir="modules/computer_vision/lib/encoding"/>
+    <file name="v4l2.c" dir="modules/computer_vision/lib/v4l"/>
+
+    <!-- The practical module itself -->
+    <file name="infinium_module.c"/>
+    
+    <!-- <file name="stabilization_practical.c"/> -->
+
+    <!-- Random flags -->
+    <flag name="LDFLAGS" value="static"/>
+
+    <!-- Used for debug video -->
+    <!---<raw>
+      ap.CFLAGS += -DUSE_UDP1 -DUDP1_PORT_OUT=5000 -DUDP1_PORT_IN=4999 -DUDP1_BROADCAST=TRUE -DUDP1_HOST=\"$(MODEM_HOST)\"
+      ap.CFLAGS += -DPRACTICAL_UDP_DEV=udp1
+
+      ap.CFLAGS += -DGUIDANCE_V_MODE_MODULE_SETTING=GUIDANCE_V_MODE_HOVER
+      ap.CFLAGS += -DGUIDANCE_H_MODE_MODULE_SETTING=GUIDANCE_H_MODE_MODULE
+    </raw> -->
+  </makefile>
+
+  <makefile target="nps">
+    <file name="viewvideo_nps.c"/>
+  </makefile>
+
+</module>

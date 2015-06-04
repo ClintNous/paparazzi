@@ -192,6 +192,8 @@
   <!-- ID 24 is free -->
   <message name ="R_DOT_AND_SPEED" id="24">
     <field name ="R_DOT_NEW" type="float"/>
+    <field name ="R_DOT_NEW_SIN" type="float"/>
+    <field name ="R_DOT_NEW_COS" type="float"/>
     <field name ="SPEED_POT" type="float"/>
   </message>
 

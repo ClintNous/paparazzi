@@ -65,7 +65,7 @@ PRINT_CONFIG_VAR(VIEWVIDEO_DEVICE_BUFFERS)
 
 /* The main opticflow variables */
 struct opticflow_t opticflow;                      ///< Opticflow calculations
-static struct opticflow_result_t opticflow_result; ///< The opticflow result
+// moved to headerfile   static struct opticflow_result_t opticflow_result; ///< The opticflow result
 static struct opticflow_state_t opticflow_state;   ///< State of the drone to communicate with the opticflow
 static struct v4l2_device *opticflow_dev;          ///< The opticflow camera V4L2 device
 static abi_event opticflow_agl_ev;                 ///< The altitude ABI event
@@ -227,7 +227,7 @@ static void *opticflow_module_calc(void *data __attribute__((unused)))
     opticflow_got_result = TRUE;
     pthread_mutex_unlock(&opticflow_mutex);
 
-#if OPTICFLOW_DEBUG
+/*#if OPTICFLOW_DEBUG TODO
     jpeg_encode_image(&img, &img_jpeg, 70, FALSE);
     rtp_frame_send(
       &VIEWVIDEO_DEV,           // UDP device
@@ -237,7 +237,7 @@ static void *opticflow_module_calc(void *data __attribute__((unused)))
       0,                        // DRI Header
       0                         // 90kHz time increment
     );
-#endif
+#endif*/
 
     // Free the image
     v4l2_image_free(opticflow_dev, &img);

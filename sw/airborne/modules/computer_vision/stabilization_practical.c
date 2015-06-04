@@ -56,7 +56,6 @@ PRINT_CONFIG_VAR(PRACTICAL_PHI_IGAIN);
 #define PRACTICAL_THETA_PGAIN 1000
 #endif
 PRINT_CONFIG_VAR(PRACTICAL_THETA_PGAIN);
-
 #ifndef PRACTICAL_THETA_IGAIN
 #define PRACTICAL_THETA_IGAIN 300
 #endif
@@ -96,7 +95,7 @@ float yaw_ref_write = 0;
 int32_t keep_yaw_rate = 0;
 int32_t keep_turning = 0;
 float r_dot_new = 0;
-float speed_pot = 0;;
+float speed_pot = 0;
 float alpha_fil = 0.1;
 float v_desired = 0.1;
 
@@ -192,7 +191,7 @@ void guidance_h_module_run(bool_t in_flight)
      
      //Input fiter for yaw_rate
      yaw_rate = (int32_t)(alpha_fil*ANGLE_BFP_OF_REAL(r_dot_new));
-     practical_stab.cmd.psi = stateGetNedToBodyEulers_i()->psi + yaw_rate;
+     practical_stab.cmd.psi  = stateGetNedToBodyEulers_i()->psi + yaw_rate;
      
      yaw_rate_write = ACCEL_FLOAT_OF_BFP(yaw_rate); 
      yaw_ref_write = ACCEL_FLOAT_OF_BFP(practical_stab.cmd.psi);
@@ -202,7 +201,7 @@ void guidance_h_module_run(bool_t in_flight)
 
     // Calculate the speed in body frame
     struct FloatVect2 speed_cur, speed_err;
-    float psi = stateGetNedToBodyEulers_f()->psi;
+    float psi = yaw_()->psi;
     float s_psi = sin(psi);
     float c_psi = cos(psi);
     speed_cur.x = c_psi * stateGetSpeedNed_f()->x + s_psi * stateGetSpeedNed_f()->y;
