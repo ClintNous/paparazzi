@@ -49,6 +49,7 @@ struct termios tty;
 uint8_t *imageBuffer;
 uint8_t *response;
 
+uint8_t *lastReadStack;
 int spot=0;
 
 struct SerialPort *port;
@@ -72,12 +73,9 @@ static void send_distance_matrix(void) {
 typedef struct ImageProperties{
 	int positionImageStart;
 	int lineLength;
-	int startLine;
 	int lineCount;
-
 } ImageProperties;
 
-uint8_t lastReadStack[4];
 
 void allocateSerialBuffer(int widthOfImage, int heightOfImage)
 {
@@ -106,31 +104,27 @@ ImageProperties search_start_position(uint8_t *raw, int size){
     int sync=0;
     ImageProperties imageProperties={-1,-1,-1,-1};
     int boolStartCounting=0;
-
+    int startOfLine=0;
     // Search for the startposition of the image, the end of the image, and the width and height of the image
     for (int i=0; i < size-1; i++){
-    	printf("Now checking: %d \n",raw[i]);
+    	//printf("Now checking: %d \n",raw[i]);
     	// Check the first 3 bytes for the pattern 255-0-0, then check what special byte is encoded next
         if ((raw[i] == 255) && (raw[i + 1] == 0) && (raw[i + 2] == 0)){
-        	printf("Possible thing: %d\n", raw[i+3]);
+        	//printf("Possible thing: %d\n", raw[i+3]);
             if (raw[i + 3] == 171 && imageProperties.positionImageStart >= 0){ // End of image
                 sync = i;
-                printf("Found image end, breaking");
                 break;
             }
             if (raw[i + 3] == 175){ // Start of image
-            	printf("Found image start\n");
             	imageProperties.positionImageStart = i;
             	boolStartCounting=1;
             	imageProperties.lineCount=0;
             }
             if (raw[i + 3] == 128){ // Start of line
-            	printf("Found line start\n");
-            	imageProperties.startLine = i;
+            	startOfLine = i;
 			}
             if (raw[i + 3] == 218 && boolStartCounting==1){ // End of line
-            	printf("Found line end\n");
-            	imageProperties.lineLength = i-imageProperties.startLine-4; // removed 4 for the indication bit
+            	imageProperties.lineLength = i-startOfLine-4; // removed 4 for the indication bit
             	imageProperties.lineCount+=1;
 			}
         }
@@ -146,8 +140,8 @@ void serial_init(void) {
 	printf("Size of image is now: %d\n", SIZE_OF_ONE_IMAGE);
 
 	allocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
-	//memset(response, '\0', sizeof response);
-//	memset(imageBuffer, '\0', sizeof imageBuffer);
+	lastReadStack=malloc(4 * sizeof(uint8_t));
+	memset(lastReadStack, 0, 4);
 
 	port = serial_port_new();
 	speed_t speed = B1000000;
@@ -160,28 +154,28 @@ void serial_init(void) {
 }
 void serial_update(void) {
 	printf("---Reading read distance matrix-----\n");
-
-
 	int n=0;
-	int fd = port->fd;
+
 	char buf = '\0';
 	int skippedStuff =0;
 	int tried=0;
 	// Read everything
 	while((tried<SIZE_OF_ONE_IMAGE) && (spot < SIZE_OF_BUFFER_TO_READ)){
-	   n = read( fd, &buf, 1 );
+	   n = read(  port->fd, &buf, 1 );
 	   tried++;
 	   if (n > 0){
 		   spot++;
 		   sprintf( &response[spot], "%c", buf );
 		  // printf("Reading: %d \n",buf);
-		   /*
+
 		   int locationInStack;
 		   for (locationInStack=0; locationInStack<3; locationInStack++){
 			   lastReadStack[locationInStack]=lastReadStack[locationInStack+1];
 		   }
 		   sprintf( &lastReadStack[3], "%c", buf );
-		   isEndOfImage(lastReadStack);*/
+		   if(isEndOfImage(lastReadStack)){
+			   break;
+		   }
 	   }
 	//} while((tried<SIZE_OF_ONE_IMAGE) && (spot < sizeof response-2));
 	}
@@ -189,7 +183,8 @@ void serial_update(void) {
 
 	//if(spot>(sizeof response-2))
 	//if(spot>500)
-	if(spot>=SIZE_OF_BUFFER_TO_READ)
+	//if(spot>=SIZE_OF_BUFFER_TO_READ)
+	if(isEndOfImage(lastReadStack))
 	{
 		spot=0;
 		//printf("Now checking length of response: %d \n", sizeof response);
@@ -209,13 +204,16 @@ void serial_update(void) {
 		//lineBuffer=realloc(lineBuffer,20);
 
 		int arrayIndex=0;
+		int lineNumber=0;
 		for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.lineCount+8;i++){
+
 			if ((response[i] == 255) && (response[i + 1] == 0) && (response[i + 2] == 0)){
 				if (response[i + 3] == 128){
 				// Start Of Line
 					int startOfBuf = i + 4;
-					int endOfBuf = (i + 4 + 30);
+					int endOfBuf = (i + 4 + imageProperties.lineLength);
 					for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
+
 						imageBuffer[arrayIndex] = response[indexInBuffer];
 						arrayIndex++;
 					}
@@ -223,11 +221,11 @@ void serial_update(void) {
 			}
 		}
 
-		for (int x = 0; x < SIZE_OF_ONE_IMAGE; x++)
+		for (int x = 0; x < imageProperties.lineCount*imageProperties.lineLength; x++)
 		{
 		  printf(" ,%d ",imageBuffer[x]);
-		  if (x%30==0 && x>0){
-			  printf("\n");
+		  if (x%imageProperties.lineLength==0 && x>0){
+			  printf("line end\n");
 		  }
 		}
 	}
