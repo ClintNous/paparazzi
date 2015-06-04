@@ -5,14 +5,14 @@
     <description>
         Main practical module
     </description>
-
+    
     <section name="PRACTICAL" prefix="PRACTICAL_">
-
     </section>
-    <define name="PRACTICAL_AGL_ID" value="ABI_SENDER_ID" description="ABI sender id for AGL message (sonar measurement) (default: ABI_BROADCAST)"/>
   </doc>
+  
+  
   <settings>
-	  <dl_settings NAME="Practical Assignment">
+	  <dl_settings NAME="PRACTICAL Assignment">
       <dl_settings name="practical">
         <dl_setting var="practical.y_m" module="computer_vision/practical_module" min="-512" step="1" max="512" shortname="y_m" param="PRACTICAL_Y_m"/>
         <dl_setting var="practical.y_M" module="computer_vision/practical_module" min="-512" step="1" max="512" shortname="y_M" param="PRACTICAL_Y_M"/>

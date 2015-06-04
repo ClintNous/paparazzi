@@ -75,7 +75,7 @@ uint16_t num_features_in_sector[4] = {0, 0, 0, 0};
 //color_count_CN
 int32_t cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 float  b_damp = 5.5; 
-float  K_goal = 2;
+float  K_goal = 3;
 float  K_obst = 20.0;
 float  c1 = 0.4;
 float  c2 = 0.4;
