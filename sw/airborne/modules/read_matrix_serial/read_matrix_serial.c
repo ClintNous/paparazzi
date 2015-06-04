@@ -45,9 +45,8 @@ int SIZE_OF_BUFFER_TO_READ;
 
 
 struct termios tty;
-//uint8_t imageBuffer[30*5];
+
 uint8_t *imageBuffer;
-//uint8_t response[3*((30+8)*5+8)];
 uint8_t *response;
 
 int spot=0;
@@ -55,9 +54,19 @@ int spot=0;
 struct SerialPort *port;
 
 static void send_distance_matrix(void) {
-	//DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, lastImageLength, imageBuffer);
-	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, sizeof imageBuffer, imageBuffer);
-	//DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, sizeof ptr, ptr);
+	for(int x=0; x < MATRIX_ROWS; x++)
+	{
+		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &x,COMPLETE_MATRIX_WIDTH, imageBuffer);
+	}
+	/*
+	if(SIZE_OF_ONE_IMAGE>50){
+
+		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,50, imageBuffer);
+	}
+	else
+	{
+		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,SIZE_OF_ONE_IMAGE, imageBuffer);
+	}*/
  }
 
 typedef struct ImageProperties{
@@ -74,13 +83,14 @@ void allocateSerialBuffer(int widthOfImage, int heightOfImage)
 {
 	MATRIX_ROWS=heightOfImage;
 	COMPLETE_MATRIX_WIDTH=widthOfImage;
+
 	SIZE_OF_BUFFER_TO_READ=2*(widthOfImage+8)*heightOfImage+8; // Length of the complete image, including indicator bytes, two times (to make sure we see it)
 	response=malloc(SIZE_OF_BUFFER_TO_READ * sizeof(uint8_t));
 	memset(response, '\0', SIZE_OF_BUFFER_TO_READ);
 
 
 	SIZE_OF_ONE_IMAGE=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;
-	imageBuffer=malloc(COMPLETE_MATRIX_WIDTH*MATRIX_ROWS*sizeof(uint8_t));
+	imageBuffer=malloc(SIZE_OF_ONE_IMAGE*sizeof(uint8_t));
 	memset(imageBuffer, '\0', SIZE_OF_ONE_IMAGE);
 
 }
@@ -91,13 +101,12 @@ int isEndOfImage(uint8_t *stack){
 	}
 	return 0;
 }
+
 ImageProperties search_start_position(uint8_t *raw, int size){
     int sync=0;
     ImageProperties imageProperties={-1,-1,-1,-1};
-
-    int a = imageProperties.lineCount;
     int boolStartCounting=0;
-    printf("Now checking length of response in function: %d \n", size);
+
     // Search for the startposition of the image, the end of the image, and the width and height of the image
     for (int i=0; i < size-1; i++){
     	printf("Now checking: %d \n",raw[i]);
@@ -146,6 +155,7 @@ void serial_init(void) {
 	printf("Result open: %d", port->fd);
 
 	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", send_distance_matrix);
+
 	printf("\nEnd init serial");
 }
 void serial_update(void) {
