@@ -94,6 +94,10 @@ float heading_target = 0;
 float new_heading = 0;
 float v_desired = 0.0;
 
+static void send_INPUT_CONTROL(void) {
+  DOWNLINK_SEND_ INPUT_CONTROL(DefaultChannel, DefaultDevice, &r_dot_new, &new_heading, &desired_vx, &desired_vy);
+ }
+
 /**
  * Horizontal guidance mode enter resets the errors
  * and starts the controller.
@@ -108,6 +112,11 @@ void guidance_h_module_enter(void)
   opticflow_stab.cmd.phi = 0;
   opticflow_stab.cmd.theta = 0;
   opticflow_stab.cmd.psi = stateGetNedToBodyEulers_i()->psi;
+  
+  new_heading = 0;
+  
+  register_periodic_telemetry(DefaultPeriodic, "INPUT_CONTROL", send_INPUT_CONTROL);
+  
 }
 
 /**
@@ -151,6 +160,8 @@ void stabilization_opticflow_update(struct opticflow_result_t *result)
     
     new_heading = new_heading + alpha_fil*(r_dot_new-new_heading);
     
+    desired_vx = sin(new_heading)*v_desired*100;
+    desired_vy = cos(new_heading)*v_desired*100;
     opticflow_stab.desired_vx = sin(new_heading)*v_desired*100;
     opticflow_stab.desired_vy = cos(new_heading)*v_desired*100;
   }

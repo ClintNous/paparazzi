@@ -58,9 +58,12 @@ extern void guidance_h_module_run(bool_t in_flight);
 // Update the stabiliztion commands based on a vision result
 void stabilization_opticflow_update(struct opticflow_result_t *vision);
 
-extern float r_dot_new;
 extern float speed_pot;
-extern float v_desired;
+extern float v_desired; 
 extern float alpha_fil;
+extern float r_dot_new;
+extern float new_heading;
+float desired_vx;
+float desired_vy;
 
 #endif /* CV_STABILIZATION_OPTICFLOW_H_ */

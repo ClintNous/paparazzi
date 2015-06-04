@@ -129,8 +129,6 @@ def run():
     global LAST_DATA
     window_title = "Sonar_Viz"
 
-   
-
     visualizer = Visualizer()
     # INITIALISE EVERYTHING HERE BECAUSE PLOTTING CAN ONLY HAPPEN ON THE MAIN THREAD!
     X = range(10,15)

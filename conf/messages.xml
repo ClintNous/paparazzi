@@ -1922,7 +1922,14 @@
     <field name ="YAW_REF" type="float"/>
     <field name ="R_DOT_NEW" type="float"/>
   </message> 
+  
   <!--217 is free -->
+  <message name="INPUT_CONTROL" id="217">
+    <field name ="R_DOT_NEW" type="float"/>
+    <field name ="NEW_HEADING" type="float"/>
+    <field name ="Desired_vx" type="float"/>
+    <field name ="Desired_vy" type="float"/>
+  </message>
 
   <message name="BEBOP_ACTUATORS" id="218">
     <field name="cmd_thrust" type="int32"/>
