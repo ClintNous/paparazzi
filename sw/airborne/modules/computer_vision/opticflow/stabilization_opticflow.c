@@ -95,7 +95,7 @@ float new_heading = 0;
 float v_desired = 0.0;
 
 static void send_INPUT_CONTROL(void) {
-  DOWNLINK_SEND_ INPUT_CONTROL(DefaultChannel, DefaultDevice, &r_dot_new, &new_heading, &desired_vx, &desired_vy);
+  DOWNLINK_SEND_INPUT_CONTROL(DefaultChannel, DefaultDevice, &r_dot_new, &new_heading, &desired_vx, &desired_vy);
  }
 
 /**

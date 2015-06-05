@@ -54,18 +54,18 @@ typedef struct ImageProperties{
 
 struct termios tty;
 
-uint8_t *imageBuffer;
+uint8_t *READimageBuffer;
 uint8_t *serialResponse;
 
 uint8_t *lastReadStack;
 int writeLocationInput=0;
 
-struct SerialPort *port;
+struct SerialPort *READING_port;
 
-static void send_distance_matrix(void) {
+static void READsend_distance_matrix(void) {
 	for(int x=0; x < MATRIX_ROWS; x++)
 	{
-		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &x,COMPLETE_MATRIX_WIDTH, imageBuffer);
+		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &x,COMPLETE_MATRIX_WIDTH, READimageBuffer);
 	}
 	/*
 		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,sizeOfOneImage, imageBuffer);
@@ -74,7 +74,7 @@ static void send_distance_matrix(void) {
 
 
 
-void allocateSerialBuffer(int widthOfImage, int heightOfImage)
+void READallocateSerialBuffer(int widthOfImage, int heightOfImage)
 {
 	MATRIX_ROWS=heightOfImage;
 	COMPLETE_MATRIX_WIDTH=widthOfImage;
@@ -85,15 +85,15 @@ void allocateSerialBuffer(int widthOfImage, int heightOfImage)
 
 
 	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;
-	imageBuffer=malloc(lengthBytesImage*sizeof(uint8_t));
-	memset(imageBuffer, '\0', lengthBytesImage);
+	READimageBuffer=malloc(lengthBytesImage*sizeof(uint8_t));
+	memset(READimageBuffer, '\0', lengthBytesImage);
 
 }
 
 /**
  * Checks if the sequence in the array is equal to 255-0-0-171
  */
-int isEndOfImage(uint8_t *stack){
+int READisEndOfImage(uint8_t *stack){
 	if (stack[0] == 255 && (stack[1] == 0) && (stack[2] == 0) && stack[3]==171){
 		return 1;
 	}
@@ -101,7 +101,7 @@ int isEndOfImage(uint8_t *stack){
 }
 
 
-ImageProperties get_image_properties(uint8_t *raw, int size){
+ImageProperties READget_image_properties(uint8_t *raw, int size){
     int sync=0;
     ImageProperties imageProperties={-1,-1,-1,-1};
     int boolStartCounting=0;
@@ -137,37 +137,46 @@ void serial_init(void) {
 	printf("Init serial\n");
 	COMPLETE_MATRIX_WIDTH=SINGLE_MATRIX_COLUMNS*CAMERAS_COUNT;
 	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
-	allocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
+	READallocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
 
 	// Allocate the stack with zeros, to prevent random initialisation
 	lastReadStack=malloc(4 * sizeof(uint8_t));
 	memset(lastReadStack, 0, 4);
 
 	// Open the serial port
-	port = serial_port_new();
-	int result=serial_port_open_raw(port,"/dev/ttyUSB0",speed);
-	printf("Result open: %d", port->fd);
+	READING_port = serial_port_new();
+	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",speed);
+	printf("Result open: %d", READING_port->fd);
 
-	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", send_distance_matrix);
+	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", READsend_distance_matrix);
 
 	printf("\nEnd init serial");
 }
 
-void printArray(uint8_t *toPrintArray, int totalLength, int width)
+void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 {
 	for (int x = 0; x < totalLength; x++)
 	{
+
 	  printf(" ,%d ",toPrintArray[x]);
 	  if (x%width==0 && x>0){
 		  printf("line end\n");
 	  }
+	}
+	for (int x = 0; x < totalLength; x++)
+	{
+		if(toPrintArray[x]>10){
+			printf(" ,%d ",toPrintArray[x]);
+			 printf("Danger!");
+		}
+
 	}
 }
 
 /**
  * Add a byte at the end of the stack, and move the other bytes forward (hereby losing the first byte)
  */
-void addLastReadByteToStack(uint8_t* lastReadStack,char buf)
+void READaddLastReadByteToStack(uint8_t* lastReadStack,char buf)
 {
    int locationInStack;
    for (locationInStack=0; locationInStack<3; locationInStack++){
@@ -186,35 +195,36 @@ void serial_update(void) {
 	// We want to read a complete image
 	// Unfortunately the drone falls down if we wait too long in this function,
 	// We therefore only try to read a certain amount of bytes
-	while((timesTriedToRead<lengthBytesImage) && (writeLocationInput < lengthBytesInputArray) && !isEndOfImage(lastReadStack)){
+	while((timesTriedToRead<lengthBytesImage) && (writeLocationInput < lengthBytesInputArray) && !READisEndOfImage(lastReadStack)){
 		//printf("Trying to read: ");
-	   n = read(  port->fd, &singleCharBuffer, 1 );
+	   n = read(  READING_port->fd, &singleCharBuffer, 1 );
 
 	   timesTriedToRead++;
 	   if (n > 0){
-		   printf("Read byte: %d \n", singleCharBuffer);
+	//	   printf("Read byte: %d \n", singleCharBuffer);
 		   sprintf( &serialResponse[writeLocationInput++], "%c", singleCharBuffer );
-		   addLastReadByteToStack(lastReadStack,singleCharBuffer);
+		   READaddLastReadByteToStack(lastReadStack,singleCharBuffer);
 	   }
 	}
 
 	// TODO: it is possible that the image is bigger than expected...
 	// ... In that case we will exceed lengthBytesInputArray, and need to resize our buffers.
-	if(isEndOfImage(lastReadStack))
+	if(READisEndOfImage(lastReadStack))
 	{
+		serial_port_flush(READING_port);
 		// As we found a complete image we will now start writing at the start of the buffer again
 		writeLocationInput=0;
 		memset(lastReadStack,0,4);
 
 		// Find the properties of the image by iterating over the complete image
-		ImageProperties imageProperties = get_image_properties(serialResponse, lengthBytesInputArray);
+		ImageProperties imageProperties = READget_image_properties(serialResponse, lengthBytesInputArray);
 		printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
 
 		// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
 		// and set the width and height variables
 		if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
 		{
-			allocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
+			READallocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
 		}
 
 		// Remove all bytes that are indications of start and stop lines
@@ -231,15 +241,14 @@ void serial_update(void) {
 					// Copy from the serialResponse in the imagebuffer
 					// Hereby removing all bytes that indicate the start of images and lines
 					for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
-						imageBuffer[imagePixelIndex] = serialResponse[indexInBuffer];
+						READimageBuffer[imagePixelIndex] = serialResponse[indexInBuffer];
 						imagePixelIndex++;
 					}
 				}
 			}
 		}
 
-	printArray(imageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
-
+		READprintArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
 	}
 
 }

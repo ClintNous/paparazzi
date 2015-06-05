@@ -28,14 +28,14 @@
 
 #include <stdint.h>
 
-extern uint8_t *imageBuffer;
+extern uint8_t *READimageBuffer;
 
-void allocateSerialBuffer(int, int);
-int isEndOfImage(uint8_t*);
+void READallocateSerialBuffer(int, int);
+int READisEndOfImage(uint8_t*);
 
 
-void addLastReadByteToStack(uint8_t*,char);
-void printArray(uint8_t *, int, int);
+void READaddLastReadByteToStack(uint8_t*,char);
+void READprintArray(uint8_t *, int, int);
 extern void serial_init(void);
 extern void serial_update(void);
 extern void serial_start(void);
