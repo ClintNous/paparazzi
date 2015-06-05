@@ -31,8 +31,6 @@ extern uint8_t *imageBuffer;
 
 void allocateSerialBuffer(int, int);
 int isEndOfImage(uint8_t*);
-
-void printArray(uint8_t *, int, int);
 extern void serial_init(void);
 extern void serial_update(void);
 extern void serial_start(void);

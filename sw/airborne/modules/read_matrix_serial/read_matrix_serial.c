@@ -60,6 +60,12 @@ static void send_distance_matrix(void) {
 		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &x,COMPLETE_MATRIX_WIDTH, imageBuffer);
 	}
 	/*
+	if(SIZE_OF_ONE_IMAGE>50){
+
+		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,50, imageBuffer);
+	}
+	else
+	{
 		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,SIZE_OF_ONE_IMAGE, imageBuffer);
 	}*/
  }
@@ -87,9 +93,6 @@ void allocateSerialBuffer(int widthOfImage, int heightOfImage)
 
 }
 
-/**
- * Checks if the sequence in the array is equal to 255-0-0-171
- */
 int isEndOfImage(uint8_t *stack){
 	if (stack[0] == 255 && (stack[1] == 0) && (stack[2] == 0) && stack[3]==171){
 		return 1;
@@ -97,8 +100,7 @@ int isEndOfImage(uint8_t *stack){
 	return 0;
 }
 
-
-ImageProperties get_image_properties(uint8_t *raw, int size){
+ImageProperties search_start_position(uint8_t *raw, int size){
     int sync=0;
     ImageProperties imageProperties={-1,-1,-1,-1};
     int boolStartCounting=0;
@@ -150,17 +152,6 @@ void serial_init(void) {
 
 	printf("\nEnd init serial");
 }
-
-void printArray(uint8_t *toPrintArray, int totalLength, int width)
-{
-	for (int x = 0; x < totalLength; x++)
-	{
-	  printf(" ,%d ",toPrintArray[x]);
-	  if (x%width==0 && x>0){
-		  printf("line end\n");
-	  }
-	}
-}
 void serial_update(void) {
 	printf("---Reading read distance matrix-----\n");
 	int n=0;
@@ -168,9 +159,7 @@ void serial_update(void) {
 	char buf = '\0';
 	int skippedStuff =0;
 	int tried=0;
-
-	// We want to read a complete image
-	// Because
+	// Read everything
 	while((tried<SIZE_OF_ONE_IMAGE) && (spot < SIZE_OF_BUFFER_TO_READ)){
 	   n = read(  port->fd, &buf, 1 );
 	   tried++;
@@ -188,40 +177,57 @@ void serial_update(void) {
 			   break;
 		   }
 	   }
+	//} while((tried<SIZE_OF_ONE_IMAGE) && (spot < sizeof response-2));
 	}
 	printf("Now exceeded, as tried: %d < SIZE_OF_IMAGE %d and spot %d < SIZE_OF_BUFFER_TO_READ %d \n",tried,SIZE_OF_ONE_IMAGE, spot,SIZE_OF_BUFFER_TO_READ);
 
+	//if(spot>(sizeof response-2))
+	//if(spot>500)
+	//if(spot>=SIZE_OF_BUFFER_TO_READ)
 	if(isEndOfImage(lastReadStack))
 	{
 		spot=0;
-		ImageProperties imageProperties = get_image_properties(response, SIZE_OF_BUFFER_TO_READ);
+		//printf("Now checking length of response: %d \n", sizeof response);
+		ImageProperties imageProperties = search_start_position(response, SIZE_OF_BUFFER_TO_READ);
 		printf("Found image properties, startpos: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.lineCount);
-
-		// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
-		// and set the width and height variables
+		//536
 		if(imageProperties.lineCount!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
 		{
 			allocateSerialBuffer(imageProperties.lineLength,imageProperties.lineCount);
 		}
 
-		int imagePixelIndex=0;
+		for (int x = 0; x < SIZE_OF_ONE_IMAGE; x++)
+		{
+			imageBuffer[x] = 0;
+		}
+		//lineBuffer=(uint8_t*)realloc(lineBuffer,4*(imageProperties.lineCount*imageProperties.lineLength));
+		//lineBuffer=realloc(lineBuffer,20);
+
+		int arrayIndex=0;
+		int lineNumber=0;
 		for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.lineCount+8;i++){
 
 			if ((response[i] == 255) && (response[i + 1] == 0) && (response[i + 2] == 0)){
-				if (response[i + 3] == 128){ // Start Of Line
+				if (response[i + 3] == 128){
+				// Start Of Line
 					int startOfBuf = i + 4;
 					int endOfBuf = (i + 4 + imageProperties.lineLength);
-
 					for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
-						imageBuffer[imagePixelIndex] = response[indexInBuffer];
-						imagePixelIndex++;
+
+						imageBuffer[arrayIndex] = response[indexInBuffer];
+						arrayIndex++;
 					}
 				}
 			}
 		}
 
-	//printArray(imageBuffer,imageProperties.lineCount*imageProperties.lineLength,imageProperties.lineLength);
-
+		for (int x = 0; x < imageProperties.lineCount*imageProperties.lineLength; x++)
+		{
+		  printf(" ,%d ",imageBuffer[x]);
+		  if (x%imageProperties.lineLength==0 && x>0){
+			  printf("line end\n");
+		  }
+		}
 	}
 
 }
