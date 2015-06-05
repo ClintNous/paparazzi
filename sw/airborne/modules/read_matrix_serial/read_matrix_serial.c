@@ -187,7 +187,7 @@ void serial_update(void) {
 	// Unfortunately the drone falls down if we wait too long in this function,
 	// We therefore only try to read a certain amount of bytes
 	while((timesTriedToRead<lengthBytesImage) && (writeLocationInput < lengthBytesInputArray) && !isEndOfImage(lastReadStack)){
-		printf("Trying to read: ");
+		//printf("Trying to read: ");
 	   n = read(  port->fd, &singleCharBuffer, 1 );
 
 	   timesTriedToRead++;
@@ -238,7 +238,7 @@ void serial_update(void) {
 			}
 		}
 
-	printArray(imageBuffer,imageProperties.lineCount*imageProperties.lineLength,imageProperties.lineLength);
+	printArray(imageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
 
 	}
 
