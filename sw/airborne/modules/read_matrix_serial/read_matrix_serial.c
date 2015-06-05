@@ -238,7 +238,7 @@ void serial_update(void) {
 			}
 		}
 
-	//printArray(imageBuffer,imageProperties.lineCount*imageProperties.lineLength,imageProperties.lineLength);
+	printArray(imageBuffer,imageProperties.lineCount*imageProperties.lineLength,imageProperties.lineLength);
 
 	}
 
