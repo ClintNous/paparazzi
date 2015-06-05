@@ -28,7 +28,7 @@ MATRIX_HEIGHT=9
 LINE_RECEIVED=0
 LAST_ANGLE=0
 AVERAGE_DATA = False
-ONLY_DRAW_LAST=True
+ONLY_DRAW_LAST=False
 def draw_sonar_visualisation(matrix, single_line, last_angle):
     try:
 	    plt.ion()

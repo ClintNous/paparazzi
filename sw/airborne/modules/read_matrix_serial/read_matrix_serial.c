@@ -61,15 +61,10 @@ uint8_t *lastReadStack;
 int writeLocationInput=0;
 
 struct SerialPort *READING_port;
-
+int messageArrayLocation=0;
 static void READsend_distance_matrix(void) {
-	for(int x=0; x < MATRIX_ROWS; x++)
-	{
-		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &x,COMPLETE_MATRIX_WIDTH, READimageBuffer);
-	}
-	/*
-		DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &MATRIX_ROWS,sizeOfOneImage, imageBuffer);
-	}*/
+	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,COMPLETE_MATRIX_WIDTH, READimageBuffer+messageArrayLocation*COMPLETE_MATRIX_WIDTH);
+	messageArrayLocation= (messageArrayLocation+1)%MATRIX_ROWS;
  }
 
 
