@@ -219,7 +219,9 @@ void serial_update(void) {
 		// Find the properties of the image by iterating over the complete image
 		ImageProperties imageProperties = READget_image_properties(serialResponse, lengthBytesInputArray);
 		printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
-
+		if(imageProperties.positionImageStart<0){
+			return;
+		}
 		// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
 		// and set the width and height variables
 		if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
