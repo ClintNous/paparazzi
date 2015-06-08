@@ -128,6 +128,12 @@ ImageProperties READget_image_properties(uint8_t *raw, int size){
     return imageProperties;
 }
 
+void resetLastReadStack()
+{
+	for(int x=0; x < 4; x++){
+		lastReadStack[x]=0;
+	}
+}
 void serial_init(void) {
 	printf("Init serial\n");
 	COMPLETE_MATRIX_WIDTH=SINGLE_MATRIX_COLUMNS*CAMERAS_COUNT;
@@ -136,7 +142,7 @@ void serial_init(void) {
 
 	// Allocate the stack with zeros, to prevent random initialisation
 	lastReadStack=malloc(4 * sizeof(uint8_t));
-	memset(lastReadStack, 0, 4);
+	resetLastReadStack();
 
 	// Open the serial port
 	READING_port = serial_port_new();
@@ -153,19 +159,20 @@ void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 	for (int x = 0; x < totalLength; x++)
 	{
 
-	  printf(" ,%d ",toPrintArray[x]);
+	//  printf(" ,%d ",toPrintArray[x]);
 	  if (x%width==0 && x>0){
-		  printf("line end\n");
+		//  printf("line end\n");
 	  }
 	}
 	for (int x = 0; x < totalLength; x++)
 	{
 		if(toPrintArray[x]>10){
-			printf(" ,%d ",toPrintArray[x]);
+			//printf(" ,%d ",toPrintArray[x]);
 			 printf("Danger!");
 		}
 
 	}
+	printf("\n");
 }
 
 /**
@@ -196,7 +203,7 @@ void serial_update(void) {
 
 	   timesTriedToRead++;
 	   if (n > 0){
-	//	   printf("Read byte: %d \n", singleCharBuffer);
+		 //  printf("Read byte: %d \n", singleCharBuffer);
 		   sprintf( &serialResponse[writeLocationInput++], "%c", singleCharBuffer );
 		   READaddLastReadByteToStack(lastReadStack,singleCharBuffer);
 	   }
@@ -206,10 +213,12 @@ void serial_update(void) {
 	// ... In that case we will exceed lengthBytesInputArray, and need to resize our buffers.
 	if(READisEndOfImage(lastReadStack))
 	{
-		serial_port_flush(READING_port);
-		// As we found a complete image we will now start writing at the start of the buffer again
 		writeLocationInput=0;
-		memset(lastReadStack,0,4);
+		resetLastReadStack();
+		//serial_port_flush(READING_port);
+
+
+		// As we found a complete image we will now start writing at the start of the buffer again
 
 		// Find the properties of the image by iterating over the complete image
 		ImageProperties imageProperties = READget_image_properties(serialResponse, lengthBytesInputArray);
@@ -221,7 +230,8 @@ void serial_update(void) {
 		// and set the width and height variables
 		if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
 		{
-			READallocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
+			//READallocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
+			printf("Watch out, image not as expected");
 		}
 
 		// Remove all bytes that are indications of start and stop lines
@@ -246,6 +256,7 @@ void serial_update(void) {
 		}
 
 		READprintArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
+
 	}
 
 }

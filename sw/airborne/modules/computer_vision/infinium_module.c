@@ -399,7 +399,7 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  uint8_t matrix_read[16];
   
   for (int i_m=0;i_m<16;i_m++){
-    matrix_read[i_m] = imageBuffer[i_m]; 
+    matrix_read[i_m] = READimageBuffer[i_m];
   }
   
  //define image size HAS TO BE CHECKED!
