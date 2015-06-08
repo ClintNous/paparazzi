@@ -71,5 +71,7 @@ float heading_goal_f;
 float heading_goal_ref;
 float r_dot_new_cos;
 float r_dot_new_sin;
+extern uint16_t matrix_treshold;
+extern float ref_pitch_angle;
 
 #endif /* PRACTICAL_MODULE_H */

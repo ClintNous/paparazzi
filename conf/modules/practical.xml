@@ -21,6 +21,9 @@
         <dl_setting var="practical.v_m" module="computer_vision/practical_module" min="-512" step="1" max="512" shortname="v_m" param="PRACTICAL_V_m"/>
         <dl_setting var="practical.v_M" module="computer_vision/practical_module" min="-512" step="1" max="512" shortname="v_M" param="PRACTICAL_V_M"/>
         <dl_setting var="practical.trigger_thres" module="computer_vision/practical_module" min="0" step="1" max="255" shortname="thres" param="PRACTICAL_thres"/>
+	<dl_setting var="matrix_treshold" module="computer_vision/practical_module" min="0" step="1" max="500" shortname="Treshold" param="Treshold"/>
+	<dl_setting var="matrix_treshold" module="computer_vision/practical_module" min="0" step="1" max="500" shortname="Treshold" param="Treshold"/>
+        <dl_setting var="ref_pitch_angle" module="computer_vision/practical_module" min="-10" step="0.1" max="10" shortname="ref_pitch" param="ref_pitch"/>
 
         <dl_setting var="practical_stab.phi_pgain" module="computer_vision/stabilization_practical" min="0" step="1" max="1000" shortname="kp_v_phi" param="PRACTICAL_PHI_PGAIN"/>
         <dl_setting var="practical_stab.phi_igain" module="computer_vision/stabilization_practical" min="0" step="1" max="1000" shortname="ki_v_phi" param="PRACTICAL_PHI_IGAIN"/>
@@ -28,6 +31,7 @@
         <dl_setting var="practical_stab.theta_igain" module="computer_vision/stabilization_practical" min="0" step="1" max="1000" shortname="ki_v_theta" param="PRACTICAL_THETA_IGAIN"/>
         <dl_setting var="practical_stab.desired_vx" module="computer_vision/stabilization_practical" min="-5" step="0.01" max="5" shortname="desired_vx" param="PRACTICAL_DESIRED_VX"/>
         <dl_setting var="practical_stab.desired_vy" module="computer_vision/stabilization_practical" min="-5" step="0.01" max="5" shortname="desired_vy" param="PRACTICAL_DESIRED_VY"/>
+	
 	
 	<dl_setting var="alpha_fil" module="computer_vision/stabilization_practical" min="0" step="0.01" max="1" shortname="alpha_fil" param="ALPHA_FIL"/>
         <dl_setting var="v_desired" module="computer_vision/stabilization_practical" min="0" step="0.1" max="2" shortname="v_des" param="V_DES"/>

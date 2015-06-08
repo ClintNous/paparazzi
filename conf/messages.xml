@@ -1923,7 +1923,7 @@
     <field name ="R_DOT_NEW" type="float"/>
   </message> 
   
-  <!--217 is free -->
+  <!--217 is NOT free -->
   <message name="INPUT_CONTROL" id="217">
     <field name ="R_DOT_NEW" type="float"/>
     <field name ="NEW_HEADING" type="float"/>

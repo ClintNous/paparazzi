@@ -100,7 +100,7 @@ float alpha_fil = 0.1;
 float v_desired = 0.1;
 
 static void send_YAW_RATE(void) {
-  DOWNLINK_SEND_YAW_RATE (DefaultChannel, DefaultDevice, &yaw_rate_write, &yaw_ref_write, &r_dot_new);
+  DOWNLINK_SEND_YAW_RATE(DefaultChannel, DefaultDevice, &yaw_rate_write, &yaw_ref_write, &r_dot_new);
  }
 
 /**
@@ -185,7 +185,9 @@ void guidance_h_module_read_rc(void)
 
 void guidance_h_module_run(bool_t in_flight)
 {
-  if(TRUE) {
+   int8_t stereo_flag = 0;
+  
+  if(stereo_flag==0) {
     // Set the height
     guidance_v_z_sp = -1 << 8;    
      
@@ -221,7 +223,7 @@ void guidance_h_module_run(bool_t in_flight)
     practical_stab.cmd.phi = -(speed_err.y * practical_stab.phi_pgain + practical_stab.err_vy_int * practical_stab.phi_igain);
     practical_stab.cmd.theta = (speed_err.x * practical_stab.theta_pgain + practical_stab.err_vx_int * practical_stab.theta_igain);
   }
-  else {
+  else if(stereo_flag==1) {
     // Reset the integrator
     practical_stab.err_vx_int = 0;
     practical_stab.err_vy_int = 0;
@@ -229,6 +231,12 @@ void guidance_h_module_run(bool_t in_flight)
     // Set the roll and pitch to 0
     practical_stab.cmd.phi = 0;
     practical_stab.cmd.theta = 0;
+  }
+  
+  else if(stereo_flag==2){
+    practical_stab.cmd.phi = 0;
+    practical_stab.cmd.theta = r_dot_new;
+    
   }
 
   /* Update the setpoint */

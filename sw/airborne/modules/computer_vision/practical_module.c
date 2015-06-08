@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <stdint.h>
 #include "state.h"
 #include "subsystems/abi.h"
 #include "stabilization_practical.h"
@@ -85,6 +86,8 @@ float  kv = 0.5;
 float  epsilon = 0.1;
 float  vmax = 0.5;
 uint8_t point_index = 0;
+uint16_t matrix_treshold = 180;
+float ref_pitch_angle = -1;
 
 struct EnuCoor_f waypoints_OA[NB_WAYPOINT] = WAYPOINTS_ENU;
 
@@ -268,7 +271,7 @@ void practical_module_stop(void)
  */
 static void *practical_module_calc(void *data __attribute__((unused)))
 {  
-  bool_t stereo_flag = 0;
+  int8_t stereo_flag = 0;
   
   // Start the streaming on the V4L2 device
   if (!v4l2_start_capture(practical_video_dev)) {
@@ -296,7 +299,25 @@ static void *practical_module_calc(void *data __attribute__((unused)))
       else if(stereo_flag==1){
 	    
 	    nav_cal_heading_stereo(1.0,WP_p1, WP_p2, WP_p3);
-	
+	    }
+      
+      else if(stereo_flag==2){
+	   int size_matrix[3] = {1, 6, 6};
+	   uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	   uint16_t matrix_sum = 0;
+	   
+	   for (int i_m=0;i_m<(size_matrix[0]*size_matrix[1]*size_matrix[2]);i_m++){
+		  matrix_read[i_m] = READimageBuffer[i_m];
+		  matrix_sum = matrix_sum + matrix_read[i_m];
+	    }
+	    
+	    if (matrix_sum>matrix_treshold){
+		 r_dot_new = ref_pitch_angle;
+	    }
+	    else{
+	         r_dot_new = 0;
+	    }
+	   
       }
   } 
   
@@ -425,19 +446,17 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
       heading_goal_ref = heading_goal_ref + 2*M_PI;
   }
   
- uint8_t matrix_read[16];
-  
+ //define image size HAS TO BE CHECKED!
+ int size_matrix[3] = {1, 6, 6};
+ uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+ float stereo_fow[2] = {0.767944871, 0.959931089};//based on FOW of 44, by 55
+ float angle_change;
+ float radius_o;
+ float radius_r;
+ 
   for (int i_m=0;i_m<16;i_m++){
     matrix_read[i_m] = READimageBuffer[i_m]; 
   }
-  
- //define image size HAS TO BE CHECKED!
- int stereo_size[2] = {1, 1};
- int size_matrix[3] = {1, 4, 4};
- float stereo_fow[2] = {0.837758041, 0.628318531};//based on FOW of 48, by 38
- float angle_change;
- float r_o;
- float r_r;
  
  //define potential field variables
  //float r_new;
@@ -456,11 +475,11 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
   
 }
  
- //calculate position angle and angular widht of obstacles
+  //calculate position angle and angular widht of obstacles
   for(int i=0;i<size_matrix[2];i++){
-       r_o = (tan(obst_angle[i]+0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2) - (tan(obst_angle[i]-0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2);
-       r_r = 0.3;
-       c5 = M_PI/2 - 2*atan(r_o/(r_o+r_r));
+       radius_o = (tan(obst_angle[i]+0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2) - (tan(obst_angle[i]-0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2);
+       radius_r = 0.3;
+       c5 = M_PI/2 - 2*atan(radius_o/(radius_o+radius_r));
    
       if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*stereo_fow[0])){
 	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
@@ -541,7 +560,6 @@ bool_t nav_cal_heading_vector(float dist_oa, uint8_t goal, uint8_t follow, uint8
   float side_slip = 0.0;
   
   //define image size + FOW STEREO camera, has to be checked!! TODO
- int stereo_size[2] = {1, 1};
  float stereo_fow[2] = {0.6981, 0.6981}; // 40 deg
  int size_matrix[3] = {1, 4, 4};
  
