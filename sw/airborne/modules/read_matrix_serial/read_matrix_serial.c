@@ -169,7 +169,11 @@ void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 		if(toPrintArray[x]>10){
 			//printf(" ,%d ",toPrintArray[x]);
 			 printf("Danger!");
+			 // Set to -5 degrees
+
 		}
+
+
 
 	}
 	printf("\n");
