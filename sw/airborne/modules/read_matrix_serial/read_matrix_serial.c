@@ -58,8 +58,6 @@ struct termios tty;
 
 uint8_t *READimageBuffer;
 uint8_t *serialResponse;
-
-uint8_t *lastReadStack;
 int writeLocationInput=0;
 
 struct SerialPort *READING_port;
@@ -87,12 +85,13 @@ void READallocateSerialBuffer(int widthOfImage, int heightOfImage)
 	MATRIX_ROWS=heightOfImage;
 	COMPLETE_MATRIX_WIDTH=widthOfImage;
 
-	lengthBytesInputArray=2*(widthOfImage+8)*heightOfImage+8; // Length of the complete image, including indicator bytes, two times (to make sure we see it)
+//	lengthBytesInputArray=2*((widthOfImage+8)*heightOfImage+8); // Length of the complete image, including indicator bytes, two times (to make sure we see it)
+	lengthBytesInputArray=50000;
 	serialResponse=malloc(lengthBytesInputArray * sizeof(uint8_t));
 	memset(serialResponse, '\0', lengthBytesInputArray);
 
 
-	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;
+	lengthBytesImage=50000;//COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;
 	READimageBuffer=malloc(lengthBytesImage*sizeof(uint8_t));
 	memset(READimageBuffer, '\0', lengthBytesImage);
 
@@ -108,15 +107,24 @@ int READisEndOfImage(uint8_t *stack){
 	return 0;
 }
 
+int READisStartOfImage(uint8_t *stack){
+	if (stack[0] == 255 && (stack[1] == 0) && (stack[2] == 0) && stack[3]==175){
+		return 1;
+	}
+	return 0;
+}
 
-ImageProperties READget_image_properties(uint8_t *raw, int size){
+
+
+
+ImageProperties READget_image_properties(uint8_t *raw, int size, int startLocation){
     int sync=0;
     ImageProperties imageProperties={-1,-1,-1,-1};
     int boolStartCounting=0;
     int startOfLine=0;
     // Search for the startposition of the image, the end of the image,
     // and the width and height of the image
-    for (int i=0; i < size-1; i++){
+    for (int i=startLocation; i < startLocation+size+10; i++){
     	// Check the first 3 bytes for the pattern 255-0-0, then check what special byte is encoded next
         if ((raw[i] == 255) && (raw[i + 1] == 0) && (raw[i + 2] == 0)){
             if (raw[i + 3] == 171 && imageProperties.positionImageStart >= 0){ // End of image
@@ -132,7 +140,11 @@ ImageProperties READget_image_properties(uint8_t *raw, int size){
             	startOfLine = i;
 			}
             if (raw[i + 3] == 218 && boolStartCounting==1){ // End of line
+
             	imageProperties.lineLength = i-startOfLine-4; // removed 4 for the indication bit
+#if PRINT_STUFF
+            	printf("Line length: %d \n", imageProperties.lineLength);
+#endif
             	imageProperties.height+=1;
 			}
         }
@@ -141,46 +153,30 @@ ImageProperties READget_image_properties(uint8_t *raw, int size){
     return imageProperties;
 }
 
-void resetLastReadStack()
-{
-	for(int x=0; x < 4; x++){
-		lastReadStack[x]=0;
-	}
-}
 void serial_init(void) {
-	#ifdef printf_debug 
-	printf("Init serial\n");
-	#endif
 	COMPLETE_MATRIX_WIDTH=SINGLE_MATRIX_COLUMNS*CAMERAS_COUNT;
 	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
 	READallocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
 
-	// Allocate the stack with zeros, to prevent random initialisation
-	lastReadStack=malloc(4 * sizeof(uint8_t));
-	resetLastReadStack();
   
 	// Open the serial port
 	READING_port = serial_port_new();
 	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",speed);
-	#ifdef printf_debug 
-	printf("Result open: %d", READING_port->fd);
-	#endif
 	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", READsend_distance_matrix);
-	#ifdef printf_debug 
-	printf("\nEnd init serial");
-	#endif
 }		
 
 void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 {
+#if PRINT_STUFF
 	for (int x = 0; x < totalLength; x++)
 	{
 
-	//  printf(" ,%d ",toPrintArray[x]);
-	  if (x%width==0 && x>0){
-		//  printf("line end\n");
+	  printf(" ,%2d ",toPrintArray[x]);
+	  if ((x+1)%width==0){
+		  printf("line end\n");
 	  }
 	}
+#endif
 	for (int x = 0; x < totalLength; x++)
 	{
 		if(toPrintArray[x]>10){
@@ -193,103 +189,134 @@ void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 
 
 	}
-	#ifdef printf_debug 
-	printf("\n");
-	#endif
 }	
 
-/**
- * Add a byte at the end of the stack, and move the other bytes forward (hereby losing the first byte)
- */
-void READaddLastReadByteToStack(uint8_t* lastReadStack,char buf)
+int isImageReady(int end, int start, int prevStart)
 {
-   int locationInStack;
-   for (locationInStack=0; locationInStack<3; locationInStack++){
-	   lastReadStack[locationInStack]=lastReadStack[locationInStack+1];
+   if(start <0)
+   {
+	   return 0;
    }
-   #ifdef printf_debug 
-   sprintf( &lastReadStack[3], "%c", buf );
-   #endif
+   if(end <0)
+   {
+	   return 0;
+   }
+   if(start-end > 0)
+   {
+	   if(prevStart >=0)
+	   {
+		   return 1;
+	   }
+   }
+   if(end-start>0)
+   {
+	   return 1;
+   }
+   printf("Default false!");
+   return 0;
 }
+#define PRINT_STUFF 0
 
 void serial_update(void) {
 	int n=0;
-//	int fd = port->fd;
-	char singleCharBuffer = '\0';
-
 	int timesTriedToRead=0;
 
-	// We want to read a complete image
-	// Unfortunately the drone falls down if we wait too long in this function,
-	// We therefore only try to read a certain amount of bytes
-	while((timesTriedToRead<lengthBytesImage) && (writeLocationInput < lengthBytesInputArray) && !READisEndOfImage(lastReadStack)){
-		//printf("Trying to read: ");
-	   n = read(  READING_port->fd, &singleCharBuffer, 1 );
-
-	   timesTriedToRead++;
-	   if (n > 0){
-		 //  printf("Read byte: %d \n", singleCharBuffer);
-		 #ifdef printf_debug 
-		   sprintf( &serialResponse[writeLocationInput++], "%c", singleCharBuffer );
-		   #endif
-		   READaddLastReadByteToStack(lastReadStack,singleCharBuffer);
-	   }
-	}
-
-	// TODO: it is possible that the image is bigger than expected...
-	// ... In that case we will exceed lengthBytesInputArray, and need to resize our buffers.
-	if(READisEndOfImage(lastReadStack))
-	{
-		writeLocationInput=0;
-		resetLastReadStack();
-		//serial_port_flush(READING_port);
-
-
-		// As we found a complete image we will now start writing at the start of the buffer again
-
-		// Find the properties of the image by iterating over the complete image
-		ImageProperties imageProperties = READget_image_properties(serialResponse, lengthBytesInputArray);
-		#ifdef printf_debug 
-		printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
-		#endif
-		if(imageProperties.positionImageStart<0){
-			return;
-		}
-		// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
-		// and set the width and height variables
-		if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
+	n = read(  READING_port->fd, &serialResponse[writeLocationInput], 10000 );
+#if PRINT_STUFF
+	printf("Read %d bytes\n",n);
+#endif
+	timesTriedToRead++;
+	int lastRecordedStart=-1;
+	int lastRecordedEnd=-1;
+	int previousStart =-1;
+	if (n > 0){
+		// Check if we found the end of the image
+		for(int startLocationToSearch=0; startLocationToSearch<writeLocationInput+n;startLocationToSearch++)
 		{
-			//READallocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
-			#ifdef printf_debug 
-			printf("Watch out, image not as expected");
-			#endif
+
+				if(READisStartOfImage(&serialResponse[startLocationToSearch]))
+				{
+
+					previousStart=lastRecordedStart;
+					lastRecordedStart=startLocationToSearch;
+				}
+				if(READisEndOfImage(&serialResponse[startLocationToSearch]))
+				{
+					lastRecordedEnd=startLocationToSearch;
+				}
 		}
+#if PRINT_STUFF
+		printf("Last recorded end: %d , last Recorded start: %d previous start %d !\n",lastRecordedEnd, lastRecordedStart, previousStart);
+#endif
+		if(isImageReady(lastRecordedEnd, lastRecordedStart, previousStart)>0)
+		{
+#if PRINT_STUFF
+			printf("Searhing properties. LastRecorded start: %d lastRecordedEnd: %d previousStart: %d \n",lastRecordedStart,lastRecordedEnd, previousStart);
+#endif
+			// Find the properties of the image by iterating over the complete image
+			ImageProperties imageProperties;
+			if (lastRecordedEnd > lastRecordedStart){
+				imageProperties= READget_image_properties(serialResponse, lastRecordedEnd-lastRecordedStart, lastRecordedStart);
+			}
+			else
+			{
+				imageProperties = READget_image_properties(serialResponse, lastRecordedEnd-previousStart, previousStart);
+			}
+#if PRINT_STUFF
+			printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
+#endif
+			if(imageProperties.positionImageStart<0 || imageProperties.height<0||imageProperties.lineLength<0){
+				printf("[Read_matrix_serial] serious problem with the image properties");
+				return;
+			}
+			if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
+			{
 
-		// Remove all bytes that are indications of start and stop lines
-		int imagePixelIndex=0;
-		for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.height+8;i++){
+				// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
+				// and set the width and height variables
+				printf("[Read_matrix_serial] image properties were not as expected");
+				MATRIX_ROWS=imageProperties.height;
+				COMPLETE_MATRIX_WIDTH=imageProperties.lineLength;
+			}
+			else
+			{
+				// Remove all bytes that are indications of start and stop lines
+				int imagePixelIndex=0;
+				for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.height+8;i++){
 
-			if ((serialResponse[i] == 255) && (serialResponse[i + 1] == 0) && (serialResponse[i + 2] == 0)){
-				if (serialResponse[i + 3] == 128){ // Start Of Line
+					if ((serialResponse[i] == 255) && (serialResponse[i + 1] == 0) && (serialResponse[i + 2] == 0)){
+						if (serialResponse[i + 3] == 128){ // Start Of Line
 
-					// Add four to the start and end positions to skip the first four bytes (255-0-0-128)
-					int startOfBuf = i + 4;
-					int endOfBuf = (i + 4 + imageProperties.lineLength);
+							// Add four to the start and end positions to skip the first four bytes (255-0-0-128)
+							int startOfBuf = i + 4;
+							int endOfBuf = (i + 4 + imageProperties.lineLength);
 
-					// Copy from the serialResponse in the imagebuffer
-					// Hereby removing all bytes that indicate the start of images and lines
-					for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
-						READimageBuffer[imagePixelIndex] = serialResponse[indexInBuffer];
-						imagePixelIndex++;
+							// Copy from the serialResponse in the imagebuffer
+							// Hereby removing all bytes that indicate the start of images and lines
+							for(int indexInBuffer = startOfBuf; indexInBuffer < endOfBuf; indexInBuffer++){
+								READimageBuffer[imagePixelIndex] = serialResponse[indexInBuffer];
+								imagePixelIndex++;
+							}
+						}
 					}
 				}
+
+				READprintArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
 			}
+
+			// Now move everything after the end of the buffer to the start of the buffer
+			int locationNewImage=0;
+			for(int toProcess=lastRecordedEnd;toProcess<writeLocationInput+n;toProcess++)
+			{
+				serialResponse[locationNewImage++]=serialResponse[toProcess];
+			}
+			writeLocationInput=locationNewImage; // As we found a complete image we will now start writing at the start of the buffer again
 		}
-
-		READprintArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
-
+		else
+		{
+			writeLocationInput+=n;
+		}
 	}
-
 }
 void serial_start(void)
 {

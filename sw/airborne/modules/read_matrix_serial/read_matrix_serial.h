@@ -34,8 +34,6 @@ extern float *READimageFilter;
 void READallocateSerialBuffer(int, int);
 int READisEndOfImage(uint8_t*);
 
-
-void READaddLastReadByteToStack(uint8_t*,char);
 void READprintArray(uint8_t *, int, int);
 extern void serial_init(void);
 extern void serial_update(void);
