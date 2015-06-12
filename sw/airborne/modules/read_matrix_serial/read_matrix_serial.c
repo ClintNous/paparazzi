@@ -35,6 +35,8 @@
 #include <serial_port.h>
 #include "read_matrix_serial.h"
 
+#define printf_debug 
+
 speed_t speed = B1000000;
 
 uint8_t MATRIX_ROWS=6;
@@ -63,7 +65,18 @@ int writeLocationInput=0;
 struct SerialPort *READING_port;
 int messageArrayLocation=0;
 static void READsend_distance_matrix(void) {
-	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,COMPLETE_MATRIX_WIDTH*MATRIX_ROWS, READimageBuffer);
+  #ifdef printf_debug 
+  printf("Sending matrix!");
+  #endif
+  for(int x=0; x < COMPLETE_MATRIX_WIDTH;x++){
+    #ifdef printf_debug 
+    printf("%d,",READimageBuffer[x]);
+    #endif
+  }
+  #ifdef printf_debug 
+  printf("\n");
+  #endif
+	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, READimageBuffer);
 	messageArrayLocation= (messageArrayLocation+1)%MATRIX_ROWS;
  }
 
@@ -135,7 +148,9 @@ void resetLastReadStack()
 	}
 }
 void serial_init(void) {
+	#ifdef printf_debug 
 	printf("Init serial\n");
+	#endif
 	COMPLETE_MATRIX_WIDTH=SINGLE_MATRIX_COLUMNS*CAMERAS_COUNT;
 	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
 	READallocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
@@ -143,16 +158,18 @@ void serial_init(void) {
 	// Allocate the stack with zeros, to prevent random initialisation
 	lastReadStack=malloc(4 * sizeof(uint8_t));
 	resetLastReadStack();
-
+  
 	// Open the serial port
 	READING_port = serial_port_new();
 	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",speed);
+	#ifdef printf_debug 
 	printf("Result open: %d", READING_port->fd);
-
+	#endif
 	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", READsend_distance_matrix);
-
+	#ifdef printf_debug 
 	printf("\nEnd init serial");
-}
+	#endif
+}		
 
 void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 {
@@ -168,7 +185,7 @@ void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 	{
 		if(toPrintArray[x]>10){
 			//printf(" ,%d ",toPrintArray[x]);
-			 printf("Danger!");
+			 //printf("Danger!");
 			 // Set to -5 degrees
 
 		}
@@ -176,8 +193,10 @@ void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
 
 
 	}
+	#ifdef printf_debug 
 	printf("\n");
-}
+	#endif
+}	
 
 /**
  * Add a byte at the end of the stack, and move the other bytes forward (hereby losing the first byte)
@@ -188,7 +207,9 @@ void READaddLastReadByteToStack(uint8_t* lastReadStack,char buf)
    for (locationInStack=0; locationInStack<3; locationInStack++){
 	   lastReadStack[locationInStack]=lastReadStack[locationInStack+1];
    }
+   #ifdef printf_debug 
    sprintf( &lastReadStack[3], "%c", buf );
+   #endif
 }
 
 void serial_update(void) {
@@ -208,7 +229,9 @@ void serial_update(void) {
 	   timesTriedToRead++;
 	   if (n > 0){
 		 //  printf("Read byte: %d \n", singleCharBuffer);
+		 #ifdef printf_debug 
 		   sprintf( &serialResponse[writeLocationInput++], "%c", singleCharBuffer );
+		   #endif
 		   READaddLastReadByteToStack(lastReadStack,singleCharBuffer);
 	   }
 	}
@@ -226,7 +249,9 @@ void serial_update(void) {
 
 		// Find the properties of the image by iterating over the complete image
 		ImageProperties imageProperties = READget_image_properties(serialResponse, lengthBytesInputArray);
+		#ifdef printf_debug 
 		printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
+		#endif
 		if(imageProperties.positionImageStart<0){
 			return;
 		}
@@ -235,7 +260,9 @@ void serial_update(void) {
 		if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
 		{
 			//READallocateSerialBuffer(imageProperties.lineLength,imageProperties.height);
+			#ifdef printf_debug 
 			printf("Watch out, image not as expected");
+			#endif
 		}
 
 		// Remove all bytes that are indications of start and stop lines

@@ -35,6 +35,7 @@
 #include "firmwares/rotorcraft/guidance/guidance_v.h"
 #include "autopilot.h"
 #include "subsystems/datalink/downlink.h"
+#include "subsystems/datalink/telemetry.h"
 
 #define CMD_OF_SAT  1500 // 40 deg = 2859.1851
 

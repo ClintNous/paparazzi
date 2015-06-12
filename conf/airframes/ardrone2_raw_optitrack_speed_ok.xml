@@ -44,14 +44,14 @@
       <define name="PRACTICAL_V_M" value="200"/>
       <define name="PRACTICAL_thres" value="1"/>
     </load>
-    <load name="read_matrix_serial.xml" />
+    <load name="read_matrix_serial.xml"/>
   </modules>
 
   <commands>
     <axis name="PITCH" failsafe_value="0"/>
     <axis name="ROLL" failsafe_value="0"/>
     <axis name="YAW" failsafe_value="0"/>
-    <axis name="THRUST" failsafe_value="5760"/>
+    <axis name="THRUST" failsafe_value="6060"/>
   </commands>
 
   <servos driver="Default">
@@ -110,17 +110,14 @@
   <!-- local magnetic field -->
   <!-- http://wiki.paparazziuav.org/wiki/Subsystem/ahrs#Local_Magnetic_Field -->
   <section name="AHRS" prefix="AHRS_">
-    <!-- Toulouse -->
-    <define name="H_X" value="0.513081"/>
-    <define name="H_Y" value="-0.00242783"/>
-    <define name="H_Z" value="0.858336"/>
+ 
     <!-- Delft -->
-    <!--define name="H_X" value="0.3892503"/>
+    <define name="H_X" value="0.3892503"/>
     <define name="H_Y" value="0.0017972"/>
-    <define name="H_Z" value="0.9211303"/ -->
+    <define name="H_Z" value="0.9211303"/>
 
     <!-- Use GPS heading instead of magneto -->
-    <define name="USE_GPS_HEADING" value="1"/>
+    <define name="USE_GPS_HEADING" value="0"/>
   </section>
 
   <section name="INS" prefix="INS_">
@@ -129,10 +126,8 @@
     <define name="VFF_R_GPS" value="0.01"/>-->
 
 
-    <define name="SONAR_MAX_RANGE" value="2.2"/>
+    <define name="SONAR_MAX_RANGE" value="4.0"/>
     <define name="SONAR_UPDATE_ON_AGL" value="TRUE"/>
-
-
   </section>
 
   <section name="STABILIZATION_RATE" prefix="STABILIZATION_RATE_">
@@ -164,7 +159,7 @@
     <!-- setpoints -->
     <define name="SP_MAX_PHI" value="45" unit="deg"/>
     <define name="SP_MAX_THETA" value="45" unit="deg"/>
-    <define name="SP_MAX_R" value="200" unit="deg/s"/>
+    <define name="SP_MAX_R" value="400" unit="deg/s"/>
     <define name="DEADBAND_A" value="0"/>
     <define name="DEADBAND_E" value="0"/>
     <define name="DEADBAND_R" value="250"/>
@@ -186,17 +181,17 @@
     <define name="REF_MAX_RDOT" value="RadOfDeg(4000.)"/>
 
     <!-- feedback -->
-    <define name="PHI_PGAIN" value="1218"/>
+    <define name="PHI_PGAIN" value="1018"/>
     <define name="PHI_DGAIN" value="303"/>
     <define name="PHI_IGAIN" value="120"/>
 
-    <define name="THETA_PGAIN" value="1218"/>
+    <define name="THETA_PGAIN" value="1018"/>
     <define name="THETA_DGAIN" value="303"/>
     <define name="THETA_IGAIN" value="120"/>
 
     <define name="PSI_PGAIN" value="529"/>
     <define name="PSI_DGAIN" value="353"/>
-    <define name="PSI_IGAIN" value="10"/>
+    <define name="PSI_IGAIN" value="15"/>
 
     <!-- feedforward -->
     <define name="PHI_DDGAIN" value="150"/>
@@ -208,8 +203,11 @@
     <define name="HOVER_KP" value="283"/>
     <define name="HOVER_KD" value="82"/>
     <define name="HOVER_KI" value="13"/>
-    <define name="NOMINAL_HOVER_THROTTLE" value="0.655"/>
-    <define name="ADAPT_THROTTLE_ENABLED" value="FALSE"/>
+    <define name="NOMINAL_HOVER_THROTTLE" value="0.7"/>
+    <define name="ADAPT_THROTTLE_ENABLED" value="TRUE"/>
+    <define name="ADAPT_INITIAL_HOVER_THROTTLE" value="0.5"/>
+    <define name="ADAPT_MIN_HOVER_THROTTLE" value="0.4"/>
+    <define name="ADAPT_MAX_HOVER_THROTTLE" value="0.85"/>
   </section>
 
   <section name="GUIDANCE_H" prefix="GUIDANCE_H_">
@@ -221,8 +219,8 @@
     <!-- reference model -->
     <define name="REF_OMEGA" value="RadOfDeg(67.)"/>
     <define name="REF_ZETA" value="0.85"/>
-    <define name="REF_MAX_ACCEL" value="5.66"/>
-    <define name="REF_MAX_SPEED" value="3"/>
+    <define name="REF_MAX_ACCEL" value="6.66"/>
+    <define name="REF_MAX_SPEED" value="4"/>
 
     <!-- gains -->
     <define name="PGAIN" value="116"/>
@@ -242,16 +240,16 @@
     <define name="MODE_STARTUP" value="AP_MODE_ATTITUDE_DIRECT"/>
     <define name="MODE_MANUAL" value="AP_MODE_ATTITUDE_DIRECT"/>
     <define name="MODE_AUTO1" value="AP_MODE_ATTITUDE_DIRECT"/>
-    <define name="MODE_AUTO2" value="AP_MODE_ATTITUDE_Z_HOLD"/>
+    <define name="MODE_AUTO2" value="AP_MODE_MODULE"/>
     <define name="USE_THROTTLE_FOR_MOTOR_ARMING" value="TRUE"/>
-    <define name="NO_RC_THRUST_LIMIT" value="TRUE"/>
+    <define name="NO_RC_THRUST_LIMIT" value="FALSE"/>
   </section>
 
   <section name="BAT">
     <define name="MILLIAMP_AT_FULL_THROTTLE" value="8700"/>
-    <define name="CATASTROPHIC_BAT_LEVEL" value="9.3" unit="V"/>
-    <define name="CRITIC_BAT_LEVEL" value="9.6" unit="V"/>
-    <define name="LOW_BAT_LEVEL" value="9.7" unit="V"/>
+    <define name="CATASTROPHIC_BAT_LEVEL" value="9.6" unit="V"/>
+    <define name="CRITIC_BAT_LEVEL" value="9.8" unit="V"/>
+    <define name="LOW_BAT_LEVEL" value="10.6" unit="V"/>
     <define name="MAX_BAT_LEVEL" value="12.4" unit="V"/>
   </section>
 </airframe>

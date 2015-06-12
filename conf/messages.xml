@@ -192,9 +192,13 @@
   <!-- ID 24 is free -->
   <message name ="R_DOT_AND_SPEED" id="24">
     <field name ="R_DOT_NEW" type="float"/>
+    <field name ="HOPPERDIEPOP" type="float"/>
+    <field name ="REF_PITCH" type="float"/>
+    <field name ="REF_ROLL" type="float"/>
     <field name ="R_DOT_NEW_SIN" type="float"/>
     <field name ="R_DOT_NEW_COS" type="float"/>
     <field name ="SPEED_POT" type="float"/>
+    <field name ="MATRIX_SUM" type="uint16[]"/>
   </message>
 
   <message name="SVINFO" id="25">
@@ -1921,6 +1925,8 @@
     <field name ="YAW_RATE" type="float"/>
     <field name ="YAW_REF" type="float"/>
     <field name ="R_DOT_NEW" type="float"/>
+    <field name ="PITCH_REF" type="float"/>
+    <field name ="ROLL_REF" type="float"/>
   </message> 
   
   <!--217 is NOT free -->

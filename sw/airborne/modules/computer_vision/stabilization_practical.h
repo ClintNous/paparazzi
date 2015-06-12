@@ -57,6 +57,9 @@ extern int32_t yaw_rate;
 extern float yaw_rate_write;
 extern float yaw_ref_write;
 extern float r_dot_new;
+extern float ref_pitch;
+extern float ref_roll;
 extern float speed_pot;
+extern float hopperdiepop;
 
 #endif /* CV_STABILIZATION_OPTICFLOW_H_ */

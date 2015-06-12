@@ -95,12 +95,15 @@ float yaw_ref_write = 0;
 int32_t keep_yaw_rate = 0;
 int32_t keep_turning = 0;
 float r_dot_new = 0;
+float ref_pitch = 10;
+float ref_roll = 10;
 float speed_pot = 0;
 float alpha_fil = 0.1;
 float v_desired = 0.1;
+float hopperdiepop = 4;
 
 static void send_YAW_RATE(void) {
-  DOWNLINK_SEND_YAW_RATE(DefaultChannel, DefaultDevice, &yaw_rate_write, &yaw_ref_write, &r_dot_new);
+  DOWNLINK_SEND_YAW_RATE(DefaultChannel, DefaultDevice, &yaw_rate_write, &yaw_ref_write, &r_dot_new, &ref_pitch, &ref_roll);
  }
 
 /**
@@ -185,7 +188,7 @@ void guidance_h_module_read_rc(void)
 
 void guidance_h_module_run(bool_t in_flight)
 {
-   int8_t stereo_flag = 0;
+   int8_t stereo_flag = 3;
   
   if(stereo_flag==0) {
     // Set the height
@@ -235,9 +238,14 @@ void guidance_h_module_run(bool_t in_flight)
   
   else if(stereo_flag==2){
     practical_stab.cmd.phi = 0;
-    practical_stab.cmd.theta = r_dot_new;
+    practical_stab.cmd.theta = ANGLE_BFP_OF_REAL(r_dot_new);
     
   }
+  else if(stereo_flag==3){
+    practical_stab.cmd.phi = ANGLE_BFP_OF_REAL(ref_roll);
+    practical_stab.cmd.theta = ANGLE_BFP_OF_REAL(ref_pitch);
+  }
+  
 
   /* Update the setpoint */
   stabilization_attitude_set_rpy_setpoint_i(&practical_stab.cmd);

@@ -44,7 +44,7 @@
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
 
-#include "modules/read_matrix_serial/read_matrix_serial.h"
+
 
 /* default sonar/agl to use in practical visual_estimator */
 #ifndef PRACTICAL_AGL_ID
@@ -76,18 +76,21 @@ uint16_t num_features_in_sector[4] = {0, 0, 0, 0};
 //color_count_CN
 int32_t cnt_obst[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 float  b_damp = 5.5; 
-float  K_goal = 3;
+float  K_goal = 0;
 float  K_obst = 20.0;
 float  c1 = 0.4;
 float  c2 = 0.4;
-float  c3 = 3.0;
+float  c3 = 2.0;
 float  c5 = 0.9;
 float  kv = 0.5;
 float  epsilon = 0.1;
 float  vmax = 0.5;
 uint8_t point_index = 0;
-uint16_t matrix_treshold = 180;
-float ref_pitch_angle = -1;
+uint16_t matrix_treshold = 7;
+uint16_t matrix_sum_treshold = 2;
+float ref_pitch_angle = 0.3;
+float matrix_filter[36] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+uint16_t matrix_sum[6]={0,0,0,0,0,0};
 
 struct EnuCoor_f waypoints_OA[NB_WAYPOINT] = WAYPOINTS_ENU;
 
@@ -97,7 +100,7 @@ static void send_CNT_OBST(void) {
  }
 
  static void send_R_DOT_AND_SPEED(void) {
-  DOWNLINK_SEND_R_DOT_AND_SPEED (DefaultChannel, DefaultDevice, &r_dot_new, &r_dot_new_sin,  &r_dot_new_cos, &speed_pot);
+  DOWNLINK_SEND_R_DOT_AND_SPEED(DefaultChannel, DefaultDevice, &r_dot_new, &hopperdiepop, &ref_pitch, &ref_roll, &r_dot_new_sin,  &r_dot_new_cos, &speed_pot,6, matrix_sum);
  }
 
 /**
@@ -271,7 +274,7 @@ void practical_module_stop(void)
  */
 static void *practical_module_calc(void *data __attribute__((unused)))
 {  
-  int8_t stereo_flag = 0;
+  int8_t stereo_flag = 3;
   
   // Start the streaming on the V4L2 device
   if (!v4l2_start_capture(practical_video_dev)) {
@@ -281,7 +284,11 @@ static void *practical_module_calc(void *data __attribute__((unused)))
   
   struct image_t img;
   struct image_t img_small;
-	        
+  
+  int size_matrix[3] = {6, 6, 6};
+  uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+  float oa_pitch_angle[6]={0,0,0,0,0,0};
+  float oa_roll_angle[6]={0,0,0,0,0,0};	        
   /* Main loop of the optical flow calculation */
   while (TRUE) {
     
@@ -306,18 +313,91 @@ static void *practical_module_calc(void *data __attribute__((unused)))
 	   uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
 	   uint16_t matrix_sum = 0;
 	   
+	   matrix_sum =0;
 	   for (int i_m=0;i_m<(size_matrix[0]*size_matrix[1]*size_matrix[2]);i_m++){
 		  matrix_read[i_m] = READimageBuffer[i_m];
-		  matrix_sum = matrix_sum + matrix_read[i_m];
+		  matrix_filter[i_m] = matrix_filter[i_m] + 0.1*matrix_read[i_m];
+		  //matrix_sum = matrix_sum + matrix_read[i_m];
+		 
+		 if(matrix_read[i_m]>9){
+		   matrix_sum = matrix_sum +1;
+		} 
+		 
 	    }
 	    
-	    if (matrix_sum>matrix_treshold){
+	    if (matrix_sum>0){
 		 r_dot_new = ref_pitch_angle;
 	    }
 	    else{
 	         r_dot_new = 0;
 	    }
 	   
+      }
+      else if(stereo_flag==3){
+	   
+	   for (int i_m=0;i_m<size_matrix[0];i_m++){
+	     matrix_sum[i_m] = 0;
+	     oa_pitch_angle[i_m] = 0;
+	     oa_roll_angle[i_m] = 0;
+	     
+	      for(int i_m2=0;i_m2<3;i_m2++){
+		  for(int i_m3=0;i_m3<size_matrix[1];i_m3++){
+		       if(READimageBuffer[i_m*size_matrix[1]+i_m2*size_matrix[1]*size_matrix[2] + i_m3]>matrix_treshold){
+			  matrix_sum[i_m] = matrix_sum[i_m] + 1;
+		       }	 
+		  }
+	      }		
+	   }
+	  
+	   if (matrix_sum[0]>matrix_sum_treshold){
+		 oa_pitch_angle[0] = ref_pitch_angle;
+		 oa_roll_angle[0] = 0; 
+	    } 
+	   if (matrix_sum[1]>matrix_sum_treshold){
+		 oa_pitch_angle[1] = cos((60.0/360.0)*2*M_PI)*ref_pitch_angle;
+		 oa_roll_angle[1] = -sin((60.0/360.0)*2*M_PI)*ref_pitch_angle; 
+	    }
+	   if (matrix_sum[2]>matrix_sum_treshold){
+		 oa_pitch_angle[2] = cos((120.0/360.0)*2*M_PI)*ref_pitch_angle;
+		 oa_roll_angle[2] = -sin((120.0/360.0)*2*M_PI)*ref_pitch_angle; 
+	    }
+	   if (matrix_sum[3]>matrix_sum_treshold){
+		 oa_pitch_angle[3] = -ref_pitch_angle;
+		 oa_roll_angle[3] = 0; 
+	    }
+	   if (matrix_sum[4]>matrix_sum_treshold){
+		 oa_pitch_angle[4] = cos((240.0/360.0)*2*M_PI)*ref_pitch_angle;
+		 oa_roll_angle[4] = -sin((240.0/360.0)*2*M_PI)*ref_pitch_angle; 
+	    }
+	   if (matrix_sum[5]>matrix_sum_treshold){
+		 oa_pitch_angle[5] = cos((300.0/360.0)*2*M_PI)*ref_pitch_angle;
+		 oa_roll_angle[5] = -sin((300.0/360.0)*2*M_PI)*ref_pitch_angle; 
+	    } 
+	    
+	    
+	    if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])>0.3){
+	      ref_pitch = 0.3;
+	    }
+	    else if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])<-0.3){
+	      ref_pitch = -0.3;
+	    }
+	    else{
+	      ref_pitch = oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5];
+	    }
+	    
+	    if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])>0.3)
+	      {
+	        ref_roll = 0.3;
+	      }
+	      else if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])<-0.3)
+	      {
+	        ref_roll = -0.3;
+	      }
+	    else
+	      {
+	        ref_roll = oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5]; 
+	      }
+	
       }
   } 
   
@@ -380,6 +460,7 @@ void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_hea
   
  //calculate angular accelaration from potential field
   r_dot_new = -b_damp*r_old - K_goal*(heading_goal_ref)*(exp(-c1*VECT2_NORM2(pos_diff))+c2) + potential_obst;
+  hopperdiepop = 3.0;
   r_dot_new_cos = cos(r_dot_new);
   r_dot_new_sin = sin(r_dot_new);
   delta_heading = 0.5*r_dot_new*dt*dt;
@@ -420,7 +501,8 @@ void nav_cal_heading(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_hea
 
 void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t wp_heading){
   bool_t flag_speed_control = TRUE;
-  
+  K_goal = 0;
+  b_damp = 0;
   //int width = cnt_obst[0];
   //struct EnuCoor_i waypoints[NB_WAYPOINT];
   
@@ -449,10 +531,12 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  //define image size HAS TO BE CHECKED!
  int size_matrix[3] = {1, 6, 6};
  uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
- float stereo_fow[2] = {0.767944871, 0.959931089};//based on FOW of 44, by 55
+ float stereo_fow[2] = {0.959931089, 0.767944871};//based on FOW of by 55 width, 44heigth  
  float angle_change;
  float radius_o;
  float radius_r;
+ float distance_obst;
+ float disparity; 
  
   for (int i_m=0;i_m<16;i_m++){
     matrix_read[i_m] = READimageBuffer[i_m]; 
@@ -469,19 +553,27 @@ void nav_cal_heading_stereo(float dist_oa, uint8_t goal, uint8_t follow, uint8_t
  float dt = 0.5;
  
  //calculate position angle and angular widht of matrix
- for(int i_o=0;i_o<size_matrix[2];i_o++){ 
+ for(int i_o=0;i_o<(size_matrix[2]-1);i_o++){ 
       obst_width[i_o] = stereo_fow[0]/size_matrix[2];
-      obst_angle[i_o] = - 0.5*stereo_fow[0] - stereo_fow[0]/size_matrix[2] + stereo_fow[0]/size_matrix[2]/2 + (stereo_fow[0]/size_matrix[2])*i_o;
+      obst_angle[i_o] = - 0.5*stereo_fow[0] + stereo_fow[0]/size_matrix[2]/2.0 + (stereo_fow[0]/size_matrix[2])*i_o;
   
 }
  
   //calculate position angle and angular widht of obstacles
-  for(int i=0;i<size_matrix[2];i++){
-       radius_o = (tan(obst_angle[i]+0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2) - (tan(obst_angle[i]-0.5*obst_width[i])*(matrix_read[4+i]+matrix_read[8+i])/2);
+  for(int i=0;i<(size_matrix[2]-1);i++){
+       disparity = matrix_read[i]; 
+       for(int i2=1;i2<(size_matrix[1]-1);i2++){
+	  if(matrix_read[size_matrix[2]*2+i]>disparity){
+	    disparity = matrix_read[size_matrix[2]*2+i];
+	  } 
+       }
+       //disparity=(matrix_read[size_matrix[2]*2+i]+matrix_read[size_matrix[2]*3+i])/2;
+       distance_obst=3-0.2*disparity;
+       radius_o = (tan(obst_angle[i]+0.5*obst_width[i])*distance_obst) - (tan(obst_angle[i]-0.5*obst_width[i])*distance_obst);
        radius_r = 0.3;
-       c5 = M_PI/2 - 2*atan(radius_o/(radius_o+radius_r));
+       c5 = M_PI/2.0 - 2.0*atan(radius_o/(radius_o+radius_r));
    
-      if (cnt_obst[i]>50 && obst_angle[i] != -(0.5*stereo_fow[0])){
+      if (disparity>5 && disparity<15){
 	potential_obst = potential_obst + K_obst*(-obst_angle[i])*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
 	potential_obst_write = potential_obst;
 	potential_obst_integrated = potential_obst_integrated + K_obst*c3*(abs(obst_angle[i])+1)/(c3*c3)*exp(-c3*abs(obst_angle[i]))*(tan(obst_width[i]+c5)-tan(c5));
@@ -560,15 +652,14 @@ bool_t nav_cal_heading_vector(float dist_oa, uint8_t goal, uint8_t follow, uint8
   float side_slip = 0.0;
   
   //define image size + FOW STEREO camera, has to be checked!! TODO
- float stereo_fow[2] = {0.6981, 0.6981}; // 40 deg
- int size_matrix[3] = {1, 4, 4};
- 
+ float stereo_fow[2] = {0.959931089, 0.767944871};//based on FOW of by 55 width, 44heigth 
+ int size_matrix[3] = {1, 6, 6};
  
  //read in values from STEREO board: 
-float StereoInput[1][4][4] = {{{20, 20, 0.1, 20},
-			   {20, 20, 0.1, 20},
-			   {20, 20, 0.1, 20},
-			   {20, 20, 0.1, 20}}};
+  uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+  for (int i_m=0;i_m<16;i_m++){
+    matrix_read[i_m] = READimageBuffer[i_m]; 
+  }
 			   
 //Repulsion force, Attracforce and total force with goal
 struct FloatVect3 Repulsionforce_Kan = {0,0,0};
@@ -609,8 +700,8 @@ for (int i1=0;i1<size_matrix[0];i1++){
 	     // Get speed in direction of angle_hor/angle_ver TODO
 	     //Cv = F1 + F2 * v/vmax;
 	     Cv = 1;
-	     if(pow(Cv*Ca/(StereoInput[i1][i2][i3]-0.2),2)<1000){
-	        Repulsionforce_Kan.x = Repulsionforce_Kan.x - pow(Cv*Ca/(StereoInput[i1][i2][i3]-0.2),2)*sin(angle_hor)*cos(angle_ver);
+	     if(pow(Cv*Ca/(matrix_read[i1]-0.2),2)<1000){
+	        Repulsionforce_Kan.x = Repulsionforce_Kan.x - pow(Cv*Ca/(matrix_read[i1]-0.2),2)*sin(angle_hor)*cos(angle_ver);
 		//Repulsionforce_Kan.y = Repulsionforce_Kan.y - Cv*Ca/(StereoInput[i1][i2][i3]-0.2)^2*cos(angle_hor)*cos(angle_ver);
 		//Repulsionforce_Kan.z = Repulsionforce_Kan.z - Cv*Ca/(StereoInput[i1][i2][i3]-0.2)^2*sin(angle_ver);
 	     }

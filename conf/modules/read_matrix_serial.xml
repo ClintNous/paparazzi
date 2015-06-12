@@ -8,7 +8,7 @@
     <file name="read_matrix_serial.h"/>
   </header>
   <init fun="serial_init()"/>
-  <periodic fun="serial_update()" freq="10" start="serial_start()" stop="serial_stop()"/>
+  <periodic fun="serial_update()" freq="10" start="serial_start()" stop="serial_stop()" freq="512"/>
   <makefile>
     <file name="read_matrix_serial.c"/>
   </makefile>

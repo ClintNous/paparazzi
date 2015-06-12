@@ -29,6 +29,7 @@
 #include <stdint.h>
 
 extern uint8_t *READimageBuffer;
+extern float *READimageFilter;
 
 void READallocateSerialBuffer(int, int);
 int READisEndOfImage(uint8_t*);

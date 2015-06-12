@@ -29,6 +29,7 @@
 #define PRACTICAL_MODULE_H
 
 #include "std.h"
+#include "modules/read_matrix_serial/read_matrix_serial.h"
 
 struct practical_t {
   int16_t y_m;
@@ -72,6 +73,9 @@ float heading_goal_ref;
 float r_dot_new_cos;
 float r_dot_new_sin;
 extern uint16_t matrix_treshold;
+extern uint16_t matrix_sum_treshold;
 extern float ref_pitch_angle;
+extern int size_matrix[3];
+extern uint16_t matrix_sum[6];
 
 #endif /* PRACTICAL_MODULE_H */

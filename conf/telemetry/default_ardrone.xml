@@ -25,10 +25,11 @@
       <message name="CNT_OBST"               period="1.2"/>
       <message name="R_DOT_AND_SPEED"        period="0.3"/>
       <message name="YAW_RATE"               period="0.3"/>
-      <message name="DISTANCE_MATRIX"        period="0.3"/>
+      <message name="DISTANCE_MATRIX"        period="1.2"/>
     </mode>
 
     <mode name="ppm">
+      <!--  <message name="DISTANCE_MATRIX"        period="0.3"/> -->
       <message name="DL_VALUE"                 period="0.5"/>
       <message name="ALIVE"                    period="2.1"/>
       <message name="ROTORCRAFT_CMD"           period=".05"/>
