@@ -35,18 +35,15 @@
 #include <serial_port.h>
 #include "read_matrix_serial.h"
 
-#define printf_debug 
+speed_t usbInputSpeed = B1000000;
 
-speed_t speed = B1000000;
-
-uint8_t MATRIX_ROWS=6;
-uint8_t SINGLE_MATRIX_COLUMNS=6;
-uint8_t CAMERAS_COUNT=6;
-uint8_t COMPLETE_MATRIX_WIDTH;
+uint8_t singleImageColumnCount=6;
+uint8_t camerasCount=6;
+uint8_t imageHeight=6;
+uint8_t imageWidth;
 
 int lengthBytesImage;
 int lengthBytesInputArray;
-
 
 typedef struct ImageProperties{
 	int positionImageStart;
@@ -55,71 +52,61 @@ typedef struct ImageProperties{
 } ImageProperties;
 
 struct termios tty;
-
 uint8_t *READimageBuffer;
 uint8_t *serialResponse;
 int writeLocationInput=0;
 
 struct SerialPort *READING_port;
 int messageArrayLocation=0;
-static void READsend_distance_matrix(void) {
-  #ifdef printf_debug 
-  printf("Sending matrix!");
-  #endif
-  for(int x=0; x < COMPLETE_MATRIX_WIDTH;x++){
-    #ifdef printf_debug 
-    printf("%d,",READimageBuffer[x]);
-    #endif
-  }
-  #ifdef printf_debug 
-  printf("\n");
-  #endif
-	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, READimageBuffer);
-	messageArrayLocation= (messageArrayLocation+1)%MATRIX_ROWS;
- }
+
+static void send_distance_matrix(void) {
+	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,&imageWidth, READimageBuffer);
+}
 
 
 
-void READallocateSerialBuffer(int widthOfImage, int heightOfImage)
+void allocateSerialBuffer(int widthOfImage, int heightOfImage)
 {
-	MATRIX_ROWS=heightOfImage;
-	COMPLETE_MATRIX_WIDTH=widthOfImage;
+	imageHeight=heightOfImage;
+	imageWidth=widthOfImage;
 
 //	lengthBytesInputArray=2*((widthOfImage+8)*heightOfImage+8); // Length of the complete image, including indicator bytes, two times (to make sure we see it)
 	lengthBytesInputArray=50000;
-	serialResponse=malloc(lengthBytesInputArray * sizeof(uint8_t));
-	memset(serialResponse, '\0', lengthBytesInputArray);
+	size_t sizeArrays=50000;
+	serialResponse=malloc(sizeArrays * sizeof(uint8_t));
+	memset(serialResponse, '0', sizeArrays);
 
 
 	lengthBytesImage=50000;//COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;
-	READimageBuffer=malloc(lengthBytesImage*sizeof(uint8_t));
-	memset(READimageBuffer, '\0', lengthBytesImage);
+	READimageBuffer=malloc(sizeArrays*sizeof(uint8_t));
+	memset(READimageBuffer, '0', sizeArrays);
 
 }
 
 /**
- * Checks if the sequence in the array is equal to 255-0-0-171
+ * Checks if the sequence in the array is equal to 255-0-0-171,
+ * as this means that this is the end of an image
  */
-int READisEndOfImage(uint8_t *stack){
+int isEndOfImage(uint8_t *stack){
 	if (stack[0] == 255 && (stack[1] == 0) && (stack[2] == 0) && stack[3]==171){
 		return 1;
 	}
 	return 0;
 }
 
-int READisStartOfImage(uint8_t *stack){
+/**
+ * Checks if the sequence in the array is equal to 255-0-0-171,
+ * as this means a new image is starting from here
+ */
+int isStartOfImage(uint8_t *stack){
 	if (stack[0] == 255 && (stack[1] == 0) && (stack[2] == 0) && stack[3]==175){
 		return 1;
 	}
 	return 0;
 }
 
-
-
-
-ImageProperties READget_image_properties(uint8_t *raw, int size, int startLocation){
-    int sync=0;
-    ImageProperties imageProperties={-1,-1,-1,-1};
+ImageProperties get_image_properties(uint8_t *raw, int size, int startLocation){
+    ImageProperties imageProperties={-1,-1,-1};
     int boolStartCounting=0;
     int startOfLine=0;
     // Search for the startposition of the image, the end of the image,
@@ -128,7 +115,6 @@ ImageProperties READget_image_properties(uint8_t *raw, int size, int startLocati
     	// Check the first 3 bytes for the pattern 255-0-0, then check what special byte is encoded next
         if ((raw[i] == 255) && (raw[i + 1] == 0) && (raw[i + 2] == 0)){
             if (raw[i + 3] == 171 && imageProperties.positionImageStart >= 0){ // End of image
-                sync = i;
                 break;
             }
             if (raw[i + 3] == 175){ // Start of image
@@ -154,18 +140,18 @@ ImageProperties READget_image_properties(uint8_t *raw, int size, int startLocati
 }
 
 void serial_init(void) {
-	COMPLETE_MATRIX_WIDTH=SINGLE_MATRIX_COLUMNS*CAMERAS_COUNT;
-	lengthBytesImage=COMPLETE_MATRIX_WIDTH*MATRIX_ROWS;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
-	READallocateSerialBuffer(COMPLETE_MATRIX_WIDTH,MATRIX_ROWS);
+	imageWidth=singleImageColumnCount*camerasCount;
+	lengthBytesImage=imageWidth*imageHeight;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
+	allocateSerialBuffer(imageWidth,imageHeight);
 
   
 	// Open the serial port
 	READING_port = serial_port_new();
-	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",speed);
-	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", READsend_distance_matrix);
+	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",usbInputSpeed);
+	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", send_distance_matrix);
 }		
 
-void READprintArray(uint8_t *toPrintArray, int totalLength, int width)
+void printArray(uint8_t *toPrintArray, int totalLength, int width)
 {
 #if PRINT_STUFF
 	for (int x = 0; x < totalLength; x++)
@@ -234,13 +220,13 @@ void serial_update(void) {
 		for(int startLocationToSearch=0; startLocationToSearch<writeLocationInput+n;startLocationToSearch++)
 		{
 
-				if(READisStartOfImage(&serialResponse[startLocationToSearch]))
+				if(isStartOfImage(&serialResponse[startLocationToSearch]))
 				{
 
 					previousStart=lastRecordedStart;
 					lastRecordedStart=startLocationToSearch;
 				}
-				if(READisEndOfImage(&serialResponse[startLocationToSearch]))
+				if(isEndOfImage(&serialResponse[startLocationToSearch]))
 				{
 					lastRecordedEnd=startLocationToSearch;
 				}
@@ -256,11 +242,11 @@ void serial_update(void) {
 			// Find the properties of the image by iterating over the complete image
 			ImageProperties imageProperties;
 			if (lastRecordedEnd > lastRecordedStart){
-				imageProperties= READget_image_properties(serialResponse, lastRecordedEnd-lastRecordedStart, lastRecordedStart);
+				imageProperties= get_image_properties(serialResponse, lastRecordedEnd-lastRecordedStart, lastRecordedStart);
 			}
 			else
 			{
-				imageProperties = READget_image_properties(serialResponse, lastRecordedEnd-previousStart, previousStart);
+				imageProperties = get_image_properties(serialResponse, lastRecordedEnd-previousStart, previousStart);
 			}
 #if PRINT_STUFF
 			printf("Found image properties, start position: %d , width: %d, height: %d \n", imageProperties.positionImageStart, imageProperties.lineLength, imageProperties.height);
@@ -269,14 +255,14 @@ void serial_update(void) {
 				printf("[Read_matrix_serial] serious problem with the image properties");
 				return;
 			}
-			if(imageProperties.height!=MATRIX_ROWS || imageProperties.lineLength != COMPLETE_MATRIX_WIDTH)
+			if(imageProperties.height!=imageHeight || imageProperties.lineLength != imageWidth)
 			{
 
 				// Because image properties might change (when uploading new code to the multigaze), we need to resize arrays
 				// and set the width and height variables
 				printf("[Read_matrix_serial] image properties were not as expected");
-				MATRIX_ROWS=imageProperties.height;
-				COMPLETE_MATRIX_WIDTH=imageProperties.lineLength;
+				imageHeight=imageProperties.height;
+				imageWidth=imageProperties.lineLength;
 			}
 			else
 			{
@@ -301,7 +287,7 @@ void serial_update(void) {
 					}
 				}
 
-				READprintArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
+				printArray(READimageBuffer,imageProperties.height*imageProperties.lineLength,imageProperties.lineLength);
 			}
 
 			// Now move everything after the end of the buffer to the start of the buffer
