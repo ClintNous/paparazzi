@@ -77,5 +77,7 @@ extern uint16_t matrix_sum_treshold;
 extern float ref_pitch_angle;
 extern int size_matrix[3];
 extern uint16_t matrix_sum[6];
+extern float Q_kal;
+extern float R_kal;
 
 #endif /* PRACTICAL_MODULE_H */
