@@ -77,7 +77,7 @@ static void READsend_distance_matrix(void) {
   printf("\n");
   #endif
 	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, READimageBuffer);
-	messageArrayLocation= (messageArrayLocation)%MATRIX_ROWS;
+	messageArrayLocation= (messageArrayLocation+1)%MATRIX_ROWS;
  }
 
 
