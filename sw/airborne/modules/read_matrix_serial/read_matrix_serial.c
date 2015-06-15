@@ -37,6 +37,8 @@
 
 speed_t usbInputSpeed = B1000000;
 
+#define PRINT_STUFF 0
+
 uint8_t singleImageColumnCount=6;
 uint8_t camerasCount=6;
 uint8_t imageHeight=6;
@@ -58,9 +60,11 @@ int writeLocationInput=0;
 
 struct SerialPort *READING_port;
 int messageArrayLocation=0;
-
+int widthToSend;
 static void send_distance_matrix(void) {
-	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,&imageWidth, READimageBuffer);
+	widthToSend=imageWidth;
+
+	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, READimageBuffer);
 }
 
 
@@ -198,10 +202,10 @@ int isImageReady(int end, int start, int prevStart)
    {
 	   return 1;
    }
-   printf("Default false!");
+
    return 0;
 }
-#define PRINT_STUFF 0
+
 
 void serial_update(void) {
 	int n=0;
@@ -266,6 +270,7 @@ void serial_update(void) {
 			}
 			else
 			{
+
 				// Remove all bytes that are indications of start and stop lines
 				int imagePixelIndex=0;
 				for (int i = imageProperties.positionImageStart; i < imageProperties.positionImageStart+(imageProperties.lineLength+8)*imageProperties.height+8;i++){

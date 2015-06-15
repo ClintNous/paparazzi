@@ -55,6 +55,7 @@ def draw_sonar_visualisation(matrix, single_line, last_pitch,last_roll):
 		new_r.extend(r[:rotateTimes])
 		r = new_r
 		print 'len r: ', len(r) , ' and len theta: ', len(theta)
+		print 'r when plotting : ', r , ' and theta: ', theta
 		ax.plot(theta, r, color=colors[0],linewidth=5)
 	    elif AVERAGE_DATA:
 		toPlotSum = np.array(matrix[0])
@@ -118,6 +119,7 @@ class Visualization:
 		LAST_ROLL=float(data[5])
 	elif data[1]=='DISTANCE_MATRIX':	
 		LINE_RECEIVED=int(data[2])
+		print 'REICEIVED DISTANCE MATRIX: ', LINE_RECEIVED
 		LAST_DATA = data[3::][0].split(',')
 	
 		for i in range(0,len(LAST_DATA)):
@@ -179,6 +181,7 @@ def run():
 	    horizontalPixelsAmount=36
 	    verticalPixelsAmount=6
             matrix[LINE_RECEIVED]=LAST_DATA
+	    
 	    draw_sonar_visualisation(matrix,LAST_DATA,LAST_PITCH,LAST_ROLL)
 
               
