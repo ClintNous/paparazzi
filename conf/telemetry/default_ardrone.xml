@@ -26,6 +26,7 @@
       <message name="R_DOT_AND_SPEED"        period="0.3"/>
       <message name="YAW_RATE"               period="0.3"/>
       <message name="DISTANCE_MATRIX"        period="0.05"/>
+      <message name="MATRIX_KALMAN"          period="0.05"/>
     </mode>
 
     <mode name="ppm">

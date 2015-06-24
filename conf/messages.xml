@@ -1984,7 +1984,12 @@
     <field name="AMSL_GPS" type="float" unit="ft" alt_unit="m"/>
   </message>
 
- <!--224 is free -->
+ <!--224 is NOT free -->
+   <message name="MATRIX_KALMAN" id="224">
+    <field name="K_gain" type="float"/>
+    <field name="ESTIMATED_MATRIX" type="float[]"/>
+  </message>
+
 
   <message name="VIDEO_SYNC" id="225">
     <field name="id" type="uint8"/>

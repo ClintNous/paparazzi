@@ -86,23 +86,16 @@ float  kv = 0.5;
 float  epsilon = 0.1;
 float  vmax = 0.5;
 uint8_t point_index = 0;
-uint16_t matrix_treshold = 7;
-uint16_t matrix_sum_treshold = 2;
-float ref_pitch_angle = 0.3;
+float matrix_treshold = 5.0;
+uint16_t matrix_sum_treshold = 3;
+float ref_pitch_angle = 0.0;
 float matrix_filter[36] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 uint16_t matrix_sum[6]={0,0,0,0,0,0};
 
 //define size of matrix
 int size_matrix[3] = {6, 6, 6};
-
-//Variables Kalman filter
-float A_kal=1;
-float B_kal=0;
-float H_kal = 1;
-float Q_kal = 0.25;
-float R_kal = 2;
-
-
+int8_t stereo_flag = 3;
+  
 struct EnuCoor_f waypoints_OA[NB_WAYPOINT] = WAYPOINTS_ENU;
 
 //messages functions
@@ -113,12 +106,12 @@ static void send_CNT_OBST(void) {
  static void send_R_DOT_AND_SPEED(void) {
   DOWNLINK_SEND_R_DOT_AND_SPEED(DefaultChannel, DefaultDevice, &r_dot_new, &hopperdiepop, &ref_pitch, &ref_roll, &r_dot_new_sin,  &r_dot_new_cos, &speed_pot,6, matrix_sum);
  }
-
+ 
 /**
  * Initialize the practical module
  */
 void practical_module_init(void)
-{
+{ 
   //messages
   register_periodic_telemetry(DefaultPeriodic, "CNT_OBST", send_CNT_OBST);
   register_periodic_telemetry(DefaultPeriodic, "R_DOT_AND_SPEED", send_R_DOT_AND_SPEED);
@@ -152,11 +145,14 @@ void practical_module_init(void)
   practical.trigger_thres = PRACTICAL_thres;
 #endif 
 
-  /* Try to initialize the video device */
-  practical_video_dev = v4l2_init("/dev/video1", 1280, 720, 10); //TODO: Fix defines
-  if (practical_video_dev == NULL) {
-    printf("[practical_module] Could not initialize the video device\n");
-  }
+if(stereo_flag!=3){  
+    /* Try to initialize the video device */
+    practical_video_dev = v4l2_init("/dev/video1", 1280, 720, 10); //TODO: Fix defines
+    if (practical_video_dev == NULL) {
+      printf("[practical_module] Could not initialize the video device\n");
+    }
+}  
+  
 }
 
 /**
@@ -172,16 +168,18 @@ void practical_module_run(void)
  */
 void practical_module_start(void)
 {
-  // Check if we are not already running
-  if (practical_calc_thread != 0) {
-    printf("[practical_module] Calculation of practical already started!\n");
-    return;
-  }
+  if(stereo_flag!=3){
+	// Check if we are not already running
+	if (practical_calc_thread != 0) {
+	  printf("[practical_module] Calculation of practical already started!\n");
+	  return;
+	}
 
-  // Create the practical calculation thread
-  int rc = pthread_create(&practical_calc_thread, NULL, practical_module_calc, NULL);
-  if (rc) {
-    printf("[practical_module] Could not initialize calculation thread (return code: %d)\n", rc);
+	// Create the practical calculation thread
+	int rc = pthread_create(&practical_calc_thread, NULL, practical_module_calc, NULL);
+	if (rc) {
+	  printf("[practical_module] Could not initialize calculation thread (return code: %d)\n", rc);
+	}
   }
 }
 
@@ -190,10 +188,12 @@ void practical_module_start(void)
  */
 void practical_module_stop(void)
 {
-  // Stop the capturing
-  v4l2_stop_capture(practical_video_dev);
+  if(stereo_flag!=3){
+      // Stop the capturing
+      v4l2_stop_capture(practical_video_dev);
 
-  // TODO: fix thread stop
+      // TODO: fix thread stop
+  }
 }
 
    // struct image_t int_y, int_u, int_v;  
@@ -279,14 +279,11 @@ void practical_module_stop(void)
 #endif
 */
 
-
 /**
  * Do the main calculation
  */
 static void *practical_module_calc(void *data __attribute__((unused)))
 {  
-  int8_t stereo_flag = 3;
-  
   // Start the streaming on the V4L2 device
   if (!v4l2_start_capture(practical_video_dev)) {
     printf("[practical_module] Could not start capture of the camera \n");
@@ -299,22 +296,6 @@ static void *practical_module_calc(void *data __attribute__((unused)))
   uint8_t matrix_read[size_matrix[0]*size_matrix[1]*size_matrix[2]];
   float oa_pitch_angle[6]={0,0,0,0,0,0};
   float oa_roll_angle[6]={0,0,0,0,0,0};	
-  
-  //Parameters for Kalman filter
-  float Pest_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  float Xest_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  
-    //Initalize Kalmann filter
-  for(int tel1=0;tel1<(36*6);tel1++){
-      Pest_new[tel1] = 1;
-      Xest_new[tel1] = 3;
-  }
-
-  float Xpred_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  float Xest_old[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  float Ppred_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  float Pest_old[size_matrix[0]*size_matrix[1]*size_matrix[2]];
-  float K_gain[size_matrix[0]*size_matrix[1]*size_matrix[2]];
   
   /* Main loop of the optical flow calculation */
   while (TRUE) {
@@ -361,25 +342,6 @@ static void *practical_module_calc(void *data __attribute__((unused)))
 	   
       }
       else if(stereo_flag==3){
-	//Kallman filter on disparity matrix
-	for (int i_k=0;i_k<(size_matrix[0]*size_matrix[1]*size_matrix[2]);i_k++){
-	   Pest_old[i_k] = Pest_new[i_k];
-	   Xest_old[i_k] = Xest_new[i_k];
-	   
-	   //one step ahead prediction
-	   Xpred_new[i_k] = A_kal*Xest_old[i_k];
-	   
-	   //Covariance matrix of state prediction error
-	   Ppred_new[i_k] = A_kal*Pest_old[i_k]*A_kal + Q_kal;
-	   
-	   //Kalman gain calculation
-           K_gain[i_k] = Ppred_new[i_k]*H_kal*1/(H_kal*Ppred_new[i_k]*H_kal + R_kal);
-	   
-	   //Measurement update
-           Xest_new[i_k] = Xpred_new[i_k] + K_gain[i_k]*(READimageBuffer[i_k] - H_kal*Xpred_new[i_k]);
-	   
-	}
-	
 	
 	//calculate if control action is required   
 	   for (int i_m=0;i_m<size_matrix[0];i_m++){
@@ -387,9 +349,9 @@ static void *practical_module_calc(void *data __attribute__((unused)))
 	     oa_pitch_angle[i_m] = 0;
 	     oa_roll_angle[i_m] = 0;
 	     
-	      for(int i_m2=0;i_m2<3;i_m2++){
+	      for(int i_m2=0;i_m2<4;i_m2++){
 		  for(int i_m3=0;i_m3<size_matrix[1];i_m3++){
-		       if(Xest_new[i_m*size_matrix[1]+i_m2*size_matrix[1]*size_matrix[2] + i_m3]>matrix_treshold){
+		       if(Xest_new[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3]>matrix_treshold){
 			  matrix_sum[i_m] = matrix_sum[i_m] + 1;
 		       }	 
 		  }
@@ -423,23 +385,23 @@ static void *practical_module_calc(void *data __attribute__((unused)))
 	    } 
 	    
 	    //limiter of control action
-	    if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])>0.3){
-	      ref_pitch = 0.3;
+	    if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])>ref_pitch_angle){
+	      ref_pitch = ref_pitch_angle;
 	    }
-	    else if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])<-0.3){
-	      ref_pitch = -0.3;
+	    else if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])<-ref_pitch_angle){
+	      ref_pitch = -ref_pitch_angle;
 	    }
 	    else{
 	      ref_pitch = oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5];
 	    }
 	    
-	    if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])>0.3)
+	    if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])>ref_pitch_angle)
 	      {
-	        ref_roll = 0.3;
+	        ref_roll = ref_pitch_angle;
 	      }
-	      else if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])<-0.3)
+	      else if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])<-ref_pitch_angle)
 	      {
-	        ref_roll = -0.3;
+	        ref_roll = -ref_pitch_angle;
 	      }
 	    else
 	      {

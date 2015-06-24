@@ -24,6 +24,7 @@
  */
 
 #include "modules/read_matrix_serial/read_matrix_serial.h"
+#include "modules/computer_vision/stabilization_practical.h"
 #include "subsystems/datalink/telemetry.h"
 #include <stdio.h>
 #include <sys/fcntl.h>
@@ -55,18 +56,44 @@ typedef struct ImageProperties{
 
 struct termios tty;
 uint8_t *READimageBuffer;
+uint8_t READimageBuffer_old[36*6];
+float butter_old[36*6] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+uint8_t READimageBuffer_offset[36*6];
 uint8_t *serialResponse;
 int writeLocationInput=0;
+uint8_t SendREADimageBuffer[36];
 
 struct SerialPort *READING_port;
 int messageArrayLocation=0;
 int widthToSend;
-static void send_distance_matrix(void) {
-	widthToSend=imageWidth;
 
-	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, READimageBuffer);
+//Variables Kalman filter
+float A_kal=1;
+float B_kal=0;
+float H_kal = 1;
+float Q_kal = 0.05;
+float R_kal = 2;
+
+float Xest_new_send[36]; 
+float K_gain_send = 0;
+
+float Pest_new[36*6];
+float Xest_new[36*6];
+
+int size_matrix[3] = {6, 6, 6};
+
+float ref_pitch_angle = 0.2;
+uint16_t matrix_sum[6]={0,0,0,0,0,0};
+uint16_t matrix_sum_treshold = 3;
+float matrix_treshold = 5.0;
+
+static void send_distance_matrix(void) {
+	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, SendREADimageBuffer);
 }
 
+ static void send_MATRIX_KALMAN(void) {
+        DOWNLINK_SEND_MATRIX_KALMAN(DefaultChannel, DefaultDevice, &K_gain_send, 36, Xest_new_send);
+ }
 
 
 void allocateSerialBuffer(int widthOfImage, int heightOfImage)
@@ -144,6 +171,12 @@ ImageProperties get_image_properties(uint8_t *raw, int size, int startLocation){
 }
 
 void serial_init(void) {
+	  //Initalize Kalmann filter
+	  for(int tel1=0;tel1<(36*6);tel1++){
+	      Pest_new[tel1] = 1;
+	      Xest_new[tel1] = 1;
+	  }
+  
 	imageWidth=singleImageColumnCount*camerasCount;
 	lengthBytesImage=imageWidth*imageHeight;//camerasAmount*matrixColumns*matrixRows+4+matrixRows*8
 	allocateSerialBuffer(imageWidth,imageHeight);
@@ -153,6 +186,7 @@ void serial_init(void) {
 	READING_port = serial_port_new();
 	int result=serial_port_open_raw(READING_port,"/dev/ttyUSB0",usbInputSpeed);
 	register_periodic_telemetry(DefaultPeriodic, "DISTANCE_MATRIX", send_distance_matrix);
+	register_periodic_telemetry(DefaultPeriodic, "MATRIX_KALMAN", send_MATRIX_KALMAN);
 }		
 
 void printArray(uint8_t *toPrintArray, int totalLength, int width)
@@ -210,6 +244,29 @@ int isImageReady(int end, int start, int prevStart)
 void serial_update(void) {
 	int n=0;
 	int timesTriedToRead=0;
+	int8_t diparity_offset[6] = {3,1,5,3,2,0};
+	int8_t filter_flag = 2;
+	
+	
+	//Parameters for Kalman filter
+	float Xpred_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	float Xest_old[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	float Ppred_new[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	float Pest_old[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	float K_gain[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	
+	float butter[size_matrix[0]*size_matrix[1]*size_matrix[2]];
+	float A_butter = -0.7265;
+	float B_butter[2] = {0.1367, 0.1367}; 
+	
+	if(filter_flag==2){
+	    for (int ifill=0;ifill<(6*36);ifill++){
+		READimageBuffer_old[ifill] = READimageBuffer[ifill];
+	    }
+	 }
+	
+	float oa_pitch_angle[6]={0,0,0,0,0,0};
+        float oa_roll_angle[6]={0,0,0,0,0,0};
 
 	n = read(  READING_port->fd, &serialResponse[writeLocationInput], 10000 );
 #if PRINT_STUFF
@@ -230,7 +287,7 @@ void serial_update(void) {
 					previousStart=lastRecordedStart;
 					lastRecordedStart=startLocationToSearch;
 				}
-				if(isEndOfImage(&serialResponse[startLocationToSearch]))
+	uint16_t matrix_sum_treshold = 3;			if(isEndOfImage(&serialResponse[startLocationToSearch]))
 				{
 					lastRecordedEnd=startLocationToSearch;
 				}
@@ -302,6 +359,128 @@ void serial_update(void) {
 				serialResponse[locationNewImage++]=serialResponse[toProcess];
 			}
 			writeLocationInput=locationNewImage; // As we found a complete image we will now start writing at the start of the buffer again
+		     	
+		     	if(filter_flag ==1){
+			      //Kallman filter on disparity matrix
+			      for (int i_k=0;i_k<(6*36);i_k++){
+				    Pest_old[i_k] = Pest_new[i_k];
+				    Xest_old[i_k] = Xest_new[i_k];
+				    
+				    //one step ahead prediction
+				    Xpred_new[i_k] = A_kal*Xest_old[i_k];
+				    
+				    //Covariance matrix of state prediction error
+				    Ppred_new[i_k] = A_kal*Pest_old[i_k]*A_kal + Q_kal;
+				    
+				    //Kalman gain calculation
+				    K_gain[i_k] = Ppred_new[i_k]*H_kal*1.0/(H_kal*Ppred_new[i_k]*H_kal + R_kal);
+				    
+				    //Measurement update
+				    Xest_new[i_k] = Xpred_new[i_k] + K_gain[i_k]*(float)(READimageBuffer[i_k] - H_kal*Xpred_new[i_k]);
+			      
+				  //Covariance matrix of state estimation error
+				    Pest_new[i_k] = (1-K_gain[i_k]*H_kal)*Ppred_new[i_k];
+			      }	
+			} 
+			
+			if(filter_flag==2){
+			      for (int i_k=0;i_k<(6*36);i_k++){
+				
+				    if((READimageBuffer_old[i_k] -READimageBuffer[i_k] )<=1 && (READimageBuffer_old[i_k] -READimageBuffer[i_k])>0){
+					READimageBuffer[i_k] = READimageBuffer_old[i_k]; 
+				      
+				    }
+				    
+				    butter[i_k] = B_butter[0]*(float)READimageBuffer[i_k] + B_butter[1]*(float)READimageBuffer_old[i_k] - A_butter*butter_old[i_k];
+				    butter_old[i_k] = butter[i_k];
+			      }
+			}
+			
+		       for(int i_fill2=0;i_fill2<size_matrix[2];i_fill2++){
+			      for(int i_fill3=0;i_fill3<size_matrix[1];i_fill3++){
+				    if(filter_flag==1){
+					Xest_new_send[i_fill2*size_matrix[1] + i_fill3] =  Xest_new[0*size_matrix[1]+i_fill2*size_matrix[0]*size_matrix[2] + i_fill3]; 
+				    }
+				    else if(filter_flag==2){  
+				        Xest_new_send[i_fill2*size_matrix[1] + i_fill3] =  butter[0*size_matrix[1]+i_fill2*size_matrix[0]*size_matrix[2] + i_fill3]; 
+				   }
+			      }
+		       }
+			
+			
+		      for(int i_fill2=0;i_fill2<size_matrix[2];i_fill2++){
+			for(int i_fill3=0;i_fill3<size_matrix[1];i_fill3++){
+			    SendREADimageBuffer[i_fill2*size_matrix[1] + i_fill3] =  READimageBuffer[0*size_matrix[1]+i_fill2*size_matrix[0]*size_matrix[2] + i_fill3]; 
+			}
+		      }
+		      
+		      //calculate if control action is required   
+		      for (int i_m=0;i_m<size_matrix[0];i_m++){
+			  matrix_sum[i_m] = 0;
+			  oa_pitch_angle[i_m] = 0;
+			  oa_roll_angle[i_m] = 0;
+			  
+			    for(int i_m2=0;i_m2<4;i_m2++){
+				  for(int i_m3=0;i_m3<size_matrix[1];i_m3++){
+					READimageBuffer_offset[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3] = READimageBuffer[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3] + diparity_offset[i_m];
+				      
+					if(READimageBuffer_offset[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3]>matrix_treshold){
+					    matrix_sum[i_m] = matrix_sum[i_m] + 1;
+					}	 
+				  }
+			    }		
+		      }
+		      
+		      //define control action
+		      if (matrix_sum[0]>matrix_sum_treshold){
+			    oa_pitch_angle[0] = ref_pitch_angle;
+			    oa_roll_angle[0] = 0; 
+			} 
+		      if (matrix_sum[1]>matrix_sum_treshold){
+			    oa_pitch_angle[1] = cos((60.0/360.0)*2*M_PI)*ref_pitch_angle;
+			    oa_roll_angle[1] = -sin((60.0/360.0)*2*M_PI)*ref_pitch_angle; 
+			}
+		      if (matrix_sum[2]>matrix_sum_treshold){
+			    oa_pitch_angle[2] = cos((120.0/360.0)*2*M_PI)*ref_pitch_angle;
+			    oa_roll_angle[2] = -sin((120.0/360.0)*2*M_PI)*ref_pitch_angle; 
+			}
+		      if (matrix_sum[3]>matrix_sum_treshold){
+			    oa_pitch_angle[3] = -ref_pitch_angle;
+			    oa_roll_angle[3] = 0; 
+			}
+		      if (matrix_sum[4]>matrix_sum_treshold){
+			    oa_pitch_angle[4] = cos((240.0/360.0)*2*M_PI)*ref_pitch_angle;
+			    oa_roll_angle[4] = -sin((240.0/360.0)*2*M_PI)*ref_pitch_angle; 
+			}
+		      if (matrix_sum[5]>matrix_sum_treshold){
+			    oa_pitch_angle[5] = cos((300.0/360.0)*2*M_PI)*ref_pitch_angle;
+			    oa_roll_angle[5] = -sin((300.0/360.0)*2*M_PI)*ref_pitch_angle; 
+			} 
+			
+			//limiter of control action
+			if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])>ref_pitch_angle){
+			  ref_pitch = ref_pitch_angle;
+			}
+			else if((oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5])<-ref_pitch_angle){
+			  ref_pitch = -ref_pitch_angle;
+			}
+			else{
+			  ref_pitch = oa_pitch_angle[0] + oa_pitch_angle[1] + oa_pitch_angle[2] + oa_pitch_angle[3]+ oa_pitch_angle[4] + oa_pitch_angle[5];
+			}
+			
+			if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])>ref_pitch_angle)
+			  {
+			    ref_roll = ref_pitch_angle;
+			  }
+			  else if((oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5])<-ref_pitch_angle)
+			  {
+			    ref_roll = -ref_pitch_angle;
+			  }
+			else
+			  {
+			    ref_roll = oa_roll_angle[0] + oa_roll_angle[1] + oa_roll_angle[2] + oa_roll_angle[3] + oa_roll_angle[4] + oa_roll_angle[5]; 
+			  }   
+			
 		}
 		else
 		{
@@ -309,6 +488,7 @@ void serial_update(void) {
 		}
 	}
 }
+
 void serial_start(void)
 {
 	//printf("serial start\n");

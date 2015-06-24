@@ -1,6 +1,6 @@
 <!DOCTYPE module SYSTEM "module.dtd">
 
-<module name="read_matrix_serial">
+<module name="read_matrix_serial"  dir="read_matrix_serial">
   <doc>
     <description>reads from the serial</description>
   </doc>
@@ -11,5 +11,12 @@
   <periodic fun="serial_update()" freq="10" start="serial_start()" stop="serial_stop()" freq="512"/>
   <makefile>
     <file name="read_matrix_serial.c"/>
-  </makefile>
+    <file name="../computer_vision/stabilization_practical.c"/>
+      
+      <raw>
+      ap.CFLAGS += -DGUIDANCE_V_MODE_MODULE_SETTING=GUIDANCE_V_MODE_HOVER
+      ap.CFLAGS += -DGUIDANCE_H_MODE_MODULE_SETTING=GUIDANCE_H_MODE_MODULE
+      </raw>
+ 
+    </makefile> 
 </module>
