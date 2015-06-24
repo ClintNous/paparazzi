@@ -64,7 +64,7 @@ int writeLocationInput=0;
 uint8_t SendREADimageBuffer[36];
 
 struct SerialPort *READING_port;
-int messageArrayLocation=0;
+int messageArrayLocation=3;
 int widthToSend;
 
 //Variables Kalman filter
@@ -84,8 +84,8 @@ int size_matrix[3] = {6, 6, 6};
 
 float ref_pitch_angle = 0.2;
 uint16_t matrix_sum[6]={0,0,0,0,0,0};
-uint16_t matrix_sum_treshold = 3;
-float matrix_treshold = 5.0;
+uint16_t matrix_sum_treshold = 0;
+float matrix_treshold = 8.0;
 
 static void send_distance_matrix(void) {
 	DOWNLINK_SEND_DISTANCE_MATRIX(DefaultChannel, DefaultDevice, &messageArrayLocation,36, SendREADimageBuffer);
@@ -244,8 +244,8 @@ int isImageReady(int end, int start, int prevStart)
 void serial_update(void) {
 	int n=0;
 	int timesTriedToRead=0;
-	int8_t diparity_offset[6] = {3,1,5,3,2,0};
-	int8_t filter_flag = 2;
+	int8_t diparity_offset[6] = {1,1,5,3,1,0};
+	int8_t filter_flag = 0;
 	
 	
 	//Parameters for Kalman filter
@@ -287,7 +287,7 @@ void serial_update(void) {
 					previousStart=lastRecordedStart;
 					lastRecordedStart=startLocationToSearch;
 				}
-	uint16_t matrix_sum_treshold = 3;			if(isEndOfImage(&serialResponse[startLocationToSearch]))
+				if(isEndOfImage(&serialResponse[startLocationToSearch]))
 				{
 					lastRecordedEnd=startLocationToSearch;
 				}
@@ -407,12 +407,6 @@ void serial_update(void) {
 			      }
 		       }
 			
-			
-		      for(int i_fill2=0;i_fill2<size_matrix[2];i_fill2++){
-			for(int i_fill3=0;i_fill3<size_matrix[1];i_fill3++){
-			    SendREADimageBuffer[i_fill2*size_matrix[1] + i_fill3] =  READimageBuffer[0*size_matrix[1]+i_fill2*size_matrix[0]*size_matrix[2] + i_fill3]; 
-			}
-		      }
 		      
 		      //calculate if control action is required   
 		      for (int i_m=0;i_m<size_matrix[0];i_m++){
@@ -420,7 +414,7 @@ void serial_update(void) {
 			  oa_pitch_angle[i_m] = 0;
 			  oa_roll_angle[i_m] = 0;
 			  
-			    for(int i_m2=0;i_m2<4;i_m2++){
+			    for(int i_m2=0;i_m2<size_matrix[2];i_m2++){
 				  for(int i_m3=0;i_m3<size_matrix[1];i_m3++){
 					READimageBuffer_offset[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3] = READimageBuffer[i_m*size_matrix[1]+i_m2*size_matrix[0]*size_matrix[2] + i_m3] + diparity_offset[i_m];
 				      
@@ -430,6 +424,14 @@ void serial_update(void) {
 				  }
 			    }		
 		      }
+		      
+		     for(int i_fill2=0;i_fill2<size_matrix[2];i_fill2++){
+			  for(int i_fill3=0;i_fill3<size_matrix[1];i_fill3++){
+			      SendREADimageBuffer[i_fill2*size_matrix[1] + i_fill3] =  READimageBuffer_offset[messageArrayLocation*size_matrix[1]+i_fill2*size_matrix[0]*size_matrix[2] + i_fill3]; 
+			  }
+		      }
+		      
+		      
 		      
 		      //define control action
 		      if (matrix_sum[0]>matrix_sum_treshold){
